@@ -3,235 +3,423 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StockFlow – Aktienplattform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StockFlow – Global Markets</title>
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  --bg:#090a0c;--panel:#111317;--panel2:#191d23;
+  --border:#282c34;--orange:#ff7900;--text:#f4f5f7;
+  --muted:#89909c;--green:#20c997;--red:#ff626b;
 }
-body {
-  background: #090909;
-  color: white;
-  font-family: Arial, sans-serif;
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:230px;position:fixed;inset:0 auto 0 0;background:#0e1013;border-right:1px solid var(--border);padding:26px 15px;z-index:10}
+.logo{font-size:25px;font-weight:800;padding:0 12px 30px}
+.logo span{color:var(--orange)}
+.demo{color:var(--orange);font-size:10px;letter-spacing:1px;padding:0 12px 28px}
+.nav-label{font-size:10px;color:#656b75;padding:0 12px;margin-bottom:12px;letter-spacing:1px}
+.nav-button{display:block;width:100%;padding:13px 12px;background:none;border:0;color:#969ca7;border-radius:7px;text-align:left;font-size:14px;margin-bottom:5px}
+.nav-button:hover,.nav-button.active{background:#21180f;color:var(--orange)}
+.sidebar-bottom{position:absolute;bottom:20px;left:27px;color:#646b76;font-size:11px;line-height:1.8}
+.main{margin-left:230px;width:calc(100% - 230px)}
+.topbar{height:70px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:0 32px;background:#0d0f12;position:sticky;top:0;z-index:5}
+.muted{color:var(--muted);font-size:12px}
+.status{font-size:11px;color:var(--orange);background:#291b10;padding:8px 12px;border-radius:5px}
+.content{max-width:1450px;margin:auto;padding:32px}
+.page{display:none}
+.page.active{display:block}
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:25px;gap:15px}
+h1{font-size:27px;margin-bottom:8px}
+.subtitle{color:var(--muted);font-size:13px}
+.section-title{font-size:17px;margin-bottom:16px;margin-top:28px}
+.notice{padding:13px 16px;border:1px solid #49301c;background:#1d1711;color:#d6a477;border-radius:7px;font-size:11px;margin-bottom:23px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:27px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;min-width:0}
+.stat-label{color:var(--muted);font-size:12px;margin-bottom:14px}
+.stat-value{font-size:24px;font-weight:bold;margin-bottom:8px}
+.green{color:var(--green)}.red{color:var(--red)}.orange{color:var(--orange)}
+.two-columns{display:grid;grid-template-columns:1.7fr 1fr;gap:17px;margin-bottom:28px}
+.panel-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:19px;gap:10px}
+.panel-heading h3{font-size:15px}
+.market-list{display:flex;flex-direction:column;gap:17px}
+.market-item{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.market-name{display:flex;flex-direction:column;gap:5px}
+.market-name span:last-child{color:var(--muted);font-size:11px}
+.table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:9px}
+table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:13px}
+th{background:#15181e;color:var(--muted);font-size:11px;text-align:left;font-weight:500;padding:15px}
+td{padding:15px;border-top:1px solid var(--border)}
+tbody tr:hover{background:#191d23}
+.company{display:flex;align-items:center;gap:10px}
+.company-icon{width:33px;height:33px;background:#252932;border-radius:8px;display:grid;place-items:center;font-weight:bold;color:var(--orange)}
+.company-symbol{color:var(--muted);font-size:11px;margin-top:4px}
+.star{border:0;background:transparent;color:#707681;font-size:20px}
+.star.active{color:var(--orange)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.search-input,.filter-select{background:var(--panel);color:white;border:1px solid var(--border);border-radius:7px;padding:12px 14px;font-size:13px;outline:none}
+.search-input{flex:1;min-width:170px}
+.search-input:focus,.filter-select:focus{border-color:var(--orange)}
+.index-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.index-card{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:20px}
+.index-card h3{font-size:13px;margin-bottom:14px}
+.index-card strong{display:block;font-size:23px;margin-bottom:9px}
+.chart-box{height:210px;width:100%;position:relative}
+canvas{width:100%;height:100%}
+.chart-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-top:8px}
+.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:20px}
+.profile-metric{background:var(--panel2);padding:17px;border-radius:7px}
+.profile-metric span{display:block;color:var(--muted);font-size:11px;margin-bottom:10px}
+.profile-metric strong{font-size:18px}
+.back-button{background:transparent;color:var(--orange);border:1px solid var(--border);padding:9px 13px;border-radius:6px;margin-bottom:20px}
+.action-button{background:var(--orange);color:#111;font-weight:bold;border:0;border-radius:6px;padding:11px 16px;font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:35px;font-size:13px}
+footer{border-top:1px solid var(--border);padding:22px 32px;color:#646b76;font-size:11px;display:flex;justify-content:space-between;gap:10px}
+@media(max-width:1000px){
+.grid{grid-template-columns:repeat(2,1fr)}
+.two-columns{grid-template-columns:1fr}
 }
-header {
-  height: 75px;
-  padding: 0 7%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #222;
-}
-.logo {
-  font-size: 25px;
-  font-weight: bold;
-}
-.logo span {
-  color: #ff7900;
-}
-nav {
-  display: flex;
-  gap: 25px;
-}
-nav a {
-  color: #aaa;
-  text-decoration: none;
-  font-size: 14px;
-}
-nav a:hover {
-  color: #ff7900;
-}
-.container {
-  width: 86%;
-  max-width: 1250px;
-  margin: 45px auto;
-}
-h1 {
-  font-size: 34px;
-  margin-bottom: 12px;
-}
-.subtitle {
-  color: #888;
-  margin-bottom: 35px;
-}
-.search {
-  width: 100%;
-  padding: 17px;
-  background: #151515;
-  border: 1px solid #333;
-  border-radius: 9px;
-  color: white;
-  font-size: 15px;
-  margin-bottom: 35px;
-}
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-bottom: 40px;
-}
-.card {
-  background: #141414;
-  border: 1px solid #252525;
-  border-radius: 12px;
-  padding: 23px;
-}
-.card p {
-  color: #888;
-  font-size: 13px;
-  margin-bottom: 15px;
-}
-.card h2 {
-  font-size: 25px;
-}
-.orange {
-  color: #ff7900;
-}
-.section-title {
-  font-size: 21px;
-  margin-bottom: 20px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #141414;
-  border-radius: 10px;
-  overflow: hidden;
-}
-th, td {
-  padding: 19px 15px;
-  text-align: left;
-  border-bottom: 1px solid #252525;
-}
-th {
-  color: #888;
-  font-size: 12px;
-}
-td {
-  font-size: 14px;
-}
-.positive {
-  color: #26c281;
-}
-.negative {
-  color: #ff5c5c;
-}
-footer {
-  text-align: center;
-  color: #666;
-  padding: 35px;
-  border-top: 1px solid #222;
-  margin-top: 70px;
-}
-@media(max-width:700px) {
-  header {
-    padding: 0 5%;
-  }
-  nav {
-    gap: 12px;
-  }
-  nav a {
-    font-size: 11px;
-  }
-  .container {
-    width: 92%;
-  }
-  .stats {
-    grid-template-columns: 1fr;
-  }
-  h1 {
-    font-size: 27px;
-  }
-  table {
-    font-size: 12px;
-  }
-  th, td {
-    padding: 13px 8px;
-  }
+@media(max-width:650px){
+.sidebar{width:100%;height:auto;inset:auto 0 0;padding:6px 3px;border-right:0;border-top:1px solid var(--border);background:#101216}
+.logo,.demo,.nav-label,.sidebar-bottom{display:none}
+.sidebar nav{display:flex;justify-content:space-around}
+.nav-button{flex:1;padding:11px 2px;margin:0;text-align:center;font-size:10px}
+.main{margin:0;width:100%;padding-bottom:60px}
+.topbar{height:58px;padding:0 14px}
+.content{padding:20px 13px}
+.grid{grid-template-columns:repeat(2,1fr);gap:9px}
+.panel{padding:14px}
+.stat-value{font-size:19px}
+.index-grid{grid-template-columns:1fr}
+.profile-grid{grid-template-columns:repeat(2,1fr)}
+h1{font-size:23px}
+footer{padding:17px 13px;flex-direction:column}
 }
 </style>
 </head>
 <body>
+<div class="layout">
 
-<header>
-  <div class="logo">Stock<span>Flow</span></div>
-  <nav>
-    <a href="#">Startseite</a>
-    <a href="#">Aktien</a>
-    <a href="#">ETFs</a>
-    <a href="#">Märkte</a>
-  </nav>
+<aside class="sidebar">
+<div class="logo">Stock<span>Flow</span></div>
+<div class="demo">GLOBAL MARKETS · DEMO</div>
+<div class="nav-label">HAUPTMENÜ</div>
+<nav>
+<button class="nav-button active" data-page="dashboard">▦ Dashboard</button>
+<button class="nav-button" data-page="stocks">◈ Aktien</button>
+<button class="nav-button" data-page="etfs">▤ ETFs</button>
+<button class="nav-button" data-page="markets">◉ Märkte</button>
+<button class="nav-button" data-page="watchlist">☆ Watchlist</button>
+<button class="nav-button" data-page="search">⌕ Suche</button>
+</nav>
+<div class="sidebar-bottom">StockFlow v2.0<br>Global Financial Platform</div>
+</aside>
+
+<div class="main">
+<header class="topbar">
+<div class="muted" id="breadcrumb">Dashboard / Übersicht</div>
+<div class="status">DEMO-DATEN</div>
 </header>
 
-<main class="container">
-  <h1>Dein Aktien-Dashboard</h1>
-  <p class="subtitle">Behalte die globalen Finanzmärkte im Blick.</p>
+<div class="content">
 
-  <input
-    class="search"
-    type="search"
-    id="search"
-    placeholder="Aktien suchen, z. B. Apple, Microsoft, NVIDIA..."
-  >
+<section class="page active" id="dashboard">
+<div class="page-header">
+<div><h1>Marktübersicht</h1><p class="subtitle">Die wichtigsten Finanzmärkte auf einen Blick.</p></div>
+</div>
+<div class="notice">DEMO-MODUS: Alle Kurse und Kennzahlen sind Beispieldaten. Es findet noch keine Verbindung zu echten Börsenkursen statt.</div>
+<div class="grid">
+<div class="panel"><div class="stat-label">S&P 500</div><div class="stat-value">6.728,15</div><div class="green">+0,84 %</div></div>
+<div class="panel"><div class="stat-label">NASDAQ 100</div><div class="stat-value">24.815,40</div><div class="green">+1,12 %</div></div>
+<div class="panel"><div class="stat-label">DAX</div><div class="stat-value">23.905,20</div><div class="red">-0,32 %</div></div>
+<div class="panel"><div class="stat-label">EURO STOXX 50</div><div class="stat-value">5.512,70</div><div class="green">+0,47 %</div></div>
+</div>
+<div class="two-columns">
+<div class="panel">
+<div class="panel-heading"><h3>Marktentwicklung</h3><span class="muted">Beispielchart</span></div>
+<div class="chart-box"><canvas id="mainChart"></canvas></div>
+<div class="chart-labels"><span>09:00</span><span>11:00</span><span>13:00</span><span>15:00</span><span>17:00</span></div>
+</div>
+<div class="panel">
+<div class="panel-heading"><h3>Wichtige Indizes</h3><span class="muted">Übersicht</span></div>
+<div class="market-list">
+<div class="market-item"><div class="market-name"><strong>Dow Jones</strong><span>USA · DJIA</span></div><span class="green">+0,56 %</span></div>
+<div class="market-item"><div class="market-name"><strong>FTSE 100</strong><span>UK · FTSE</span></div><span class="green">+0,21 %</span></div>
+<div class="market-item"><div class="market-name"><strong>Nikkei 225</strong><span>Japan · N225</span></div><span class="red">-0,41 %</span></div>
+<div class="market-item"><div class="market-name"><strong>Hang Seng</strong><span>Hongkong · HSI</span></div><span class="green">+0,73 %</span></div>
+<div class="market-item"><div class="market-name"><strong>NASDAQ Composite</strong><span>USA · IXIC</span></div><span class="green">+0,92 %</span></div>
+</div>
+</div>
+</div>
+<h2 class="section-title">Beliebte Aktien</h2>
+<div class="table-wrap"><table><thead><tr><th>Unternehmen</th><th>Kurs</th><th>Änderung</th><th>Aktion</th></tr></thead><tbody id="dashboardStocks"></tbody></table></div>
+</section>
 
-  <div class="stats">
-    <div class="card">
-      <p>Marktübersicht</p>
-      <h2 class="orange">Global</h2>
-    </div>
-    <div class="card">
-      <p>Assetklassen</p>
-      <h2>Aktien & ETFs</h2>
-    </div>
-    <div class="card">
-      <p>Datenstatus</p>
-      <h2>Demo-Modus</h2>
-    </div>
-  </div>
+<section class="page" id="stocks">
+<div class="page-header"><div><h1>Aktien</h1><p class="subtitle">Unternehmen und Aktien entdecken.</p></div></div>
+<div class="toolbar">
+<input class="search-input" id="stockSearch" placeholder="Unternehmen oder Symbol suchen...">
+<select class="filter-select" id="stockRegion">
+<option value="all">Alle Regionen</option><option value="USA">USA</option><option value="Deutschland">Deutschland</option><option value="Europa">Europa</option>
+</select>
+<select class="filter-select" id="stockSort">
+<option value="name">Name A–Z</option><option value="price">Kurs: hoch – niedrig</option><option value="change">Performance: hoch – niedrig</option><option value="changeLow">Performance: niedrig – hoch</option>
+</select>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Unternehmen</th><th>Region</th><th>Kurs</th><th>Änderung</th><th>Marktkapitalisierung</th><th>Watchlist</th></tr></thead><tbody id="stockTable"></tbody></table></div>
+</section>
 
-  <h2 class="section-title">Beliebte Aktien</h2>
+<section class="page" id="etfs">
+<div class="page-header"><div><h1>ETFs</h1><p class="subtitle">Exchange Traded Funds – Fondsübersicht.</p></div></div>
+<div class="toolbar"><input class="search-input" id="etfSearch" placeholder="ETF oder Index suchen..."></div>
+<div class="table-wrap"><table><thead><tr><th>ETF</th><th>ISIN</th><th>Index</th><th>Gebühren p.a.</th><th>Typ</th></tr></thead><tbody id="etfTable"></tbody></table></div>
+</section>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Unternehmen</th>
-        <th>Kürzel</th>
-        <th>Kurs</th>
-        <th>Änderung</th>
-      </tr>
-    </thead>
-    <tbody id="stock-list">
-      <tr><td>Apple</td><td>AAPL</td><td>Demo</td><td class="positive">+1,24 %</td></tr>
-      <tr><td>Microsoft</td><td>MSFT</td><td>Demo</td><td class="positive">+0,82 %</td></tr>
-      <tr><td>NVIDIA</td><td>NVDA</td><td>Demo</td><td class="negative">-0,45 %</td></tr>
-      <tr><td>Amazon</td><td>AMZN</td><td>Demo</td><td class="positive">+1,10 %</td></tr>
-      <tr><td>Alphabet</td><td>GOOGL</td><td>Demo</td><td class="negative">-0,32 %</td></tr>
-    </tbody>
-  </table>
-</main>
+<section class="page" id="markets">
+<div class="page-header"><div><h1>Weltweite Märkte</h1><p class="subtitle">Indizes aus wichtigen Finanzregionen.</p></div></div>
+<div class="index-grid" id="indexGrid"></div>
+</section>
 
-<footer>
-  StockFlow – Deine Übersicht der Finanzmärkte
-</footer>
+<section class="page" id="watchlist">
+<div class="page-header"><div><h1>Watchlist</h1><p class="subtitle">Deine gespeicherten Unternehmen.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Unternehmen</th><th>Symbol</th><th>Kurs</th><th>Änderung</th><th>Aktion</th></tr></thead><tbody id="watchlistTable"></tbody></table></div>
+</section>
+
+<section class="page" id="search">
+<div class="page-header"><div><h1>Suche</h1><p class="subtitle">Finde Unternehmen und ETFs in unserer Demo-Datenbank.</p></div></div>
+<div class="toolbar"><input class="search-input" id="globalSearch" placeholder="Apple, Microsoft, NVIDIA, ETF..."></div>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Typ</th><th>Symbol</th><th>Kurs</th><th>Aktion</th></tr></thead><tbody id="globalResults"></tbody></table></div>
+</section>
+
+<section class="page" id="profile">
+<button class="back-button" id="backButton">← Zurück</button>
+<div class="page-header"><div><h1 id="profileName">Unternehmen</h1><p class="subtitle" id="profileSymbol"></p></div></div>
+<div class="grid">
+<div class="panel"><div class="stat-label">Aktienkurs</div><div class="stat-value" id="profilePrice">–</div></div>
+<div class="panel"><div class="stat-label">Tagesveränderung</div><div class="stat-value" id="profileChange">–</div></div>
+<div class="panel"><div class="stat-label">Marktkapitalisierung</div><div class="stat-value" id="profileCap">–</div></div>
+<div class="panel"><div class="stat-label">KGV</div><div class="stat-value" id="profilePE">–</div></div>
+</div>
+<div class="panel profile-card">
+<h3>Unternehmenskennzahlen</h3>
+<div class="profile-grid">
+<div class="profile-metric"><span>Gewinn je Aktie (EPS)</span><strong id="profileEPS">–</strong></div>
+<div class="profile-metric"><span>Umsatz</span><strong id="profileRevenue">–</strong></div>
+<div class="profile-metric"><span>Gewinnmarge</span><strong id="profileMargin">–</strong></div>
+<div class="profile-metric"><span>ROE</span><strong id="profileROE">–</strong></div>
+<div class="profile-metric"><span>Dividendenrendite</span><strong id="profileDividend">–</strong></div>
+<div class="profile-metric"><span>Region</span><strong id="profileRegion">–</strong></div>
+</div>
+</div>
+<div class="notice" style="margin-top:20px">Alle Kennzahlen in diesem Profil sind Beispieldaten und keine aktuellen Unternehmensberichte.</div>
+</section>
+
+</div>
+
+<footer><span>StockFlow © 2026</span><span>Finanzinformationen · Demo-Version</span></footer>
+</div>
+</div>
 
 <script>
-const search = document.getElementById("search");
-const rows = document.querySelectorAll("#stock-list tr");
+const stocks=[
+{name:"Apple",symbol:"AAPL",price:269.40,change:1.24,region:"USA",cap:"4,0 Bio. USD",pe:34.2,eps:7.85,revenue:"416 Mrd. USD",margin:"24,3 %",roe:"152 %",dividend:"0,4 %"},
+{name:"Microsoft",symbol:"MSFT",price:510.25,change:0.82,region:"USA",cap:"3,8 Bio. USD",pe:37.5,eps:13.61,revenue:"281 Mrd. USD",margin:"35,4 %",roe:"32 %",dividend:"0,7 %"},
+{name:"NVIDIA",symbol:"NVDA",price:181.75,change:-0.45,region:"USA",cap:"4,4 Bio. USD",pe:52.1,eps:3.49,revenue:"130 Mrd. USD",margin:"53,0 %",roe:"110 %",dividend:"0,03 %"},
+{name:"Amazon",symbol:"AMZN",price:238.50,change:1.10,region:"USA",cap:"2,5 Bio. USD",pe:35.8,eps:6.66,revenue:"638 Mrd. USD",margin:"10,2 %",roe:"22 %",dividend:"0 %"},
+{name:"Alphabet",symbol:"GOOGL",price:192.20,change:-0.32,region:"USA",cap:"2,3 Bio. USD",pe:22.5,eps:8.54,revenue:"350 Mrd. USD",margin:"29,0 %",roe:"31 %",dividend:"0,4 %"},
+{name:"Tesla",symbol:"TSLA",price:405.60,change:2.30,region:"USA",cap:"1,3 Bio. USD",pe:180,eps:2.25,revenue:"97 Mrd. USD",margin:"7,3 %",roe:"10 %",dividend:"0 %"},
+{name:"SAP",symbol:"SAP",price:218.60,change:0.65,region:"Deutschland",cap:"255 Mrd. EUR",pe:34.5,eps:6.34,revenue:"34 Mrd. EUR",margin:"21,0 %",roe:"15 %",dividend:"1,0 %"},
+{name:"Siemens",symbol:"SIE",price:224.10,change:-0.24,region:"Deutschland",cap:"175 Mrd. EUR",pe:19.8,eps:11.32,revenue:"75 Mrd. EUR",margin:"11,2 %",roe:"14 %",dividend:"2,5 %"},
+{name:"Allianz",symbol:"ALV",price:372.80,change:0.48,region:"Deutschland",cap:"145 Mrd. EUR",pe:12.1,eps:30.8,revenue:"180 Mrd. EUR",margin:"–",roe:"15 %",dividend:"4,5 %"},
+{name:"ASML",symbol:"ASML",price:690.50,change:1.75,region:"Europa",cap:"270 Mrd. EUR",pe:31.5,eps:21.92,revenue:"28 Mrd. EUR",margin:"28 %",roe:"52 %",dividend:"1,0 %"},
+{name:"LVMH",symbol:"MC",price:570.30,change:-1.15,region:"Europa",cap:"285 Mrd. EUR",pe:21.3,eps:26.77,revenue:"84 Mrd. EUR",margin:"22 %",roe:"17 %",dividend:"2,2 %"}
+];
 
-search.addEventListener("input", () => {
-  const value = search.value.toLowerCase();
+const etfs=[
+{name:"Vanguard S&P 500",isin:"IE00B3XXRP09",index:"S&P 500",fee:"0,07 %",type:"Thesaurierend"},
+{name:"iShares Core MSCI World",isin:"IE00B4L5Y983",index:"MSCI World",fee:"0,20 %",type:"Thesaurierend"},
+{name:"Vanguard FTSE All-World",isin:"IE00BK5BQT80",index:"FTSE All-World",fee:"0,22 %",type:"Thesaurierend"},
+{name:"iShares Core DAX",isin:"DE0005933931",index:"DAX",fee:"0,16 %",type:"Thesaurierend"},
+{name:"iShares NASDAQ 100",isin:"IE00B53SZB19",index:"NASDAQ 100",fee:"0,30 %",type:"Thesaurierend"},
+{name:"Xtrackers MSCI Emerging Markets",isin:"IE00BTJRMP35",index:"MSCI Emerging Markets",fee:"0,18 %",type:"Thesaurierend"}
+];
 
-  rows.forEach(row => {
-    row.style.display =
-      row.textContent.toLowerCase().includes(value)
-      ? ""
-      : "none";
-  });
+const indices=[
+{name:"S&P 500",symbol:"SPX",value:"6.728,15",change:0.84,region:"USA"},
+{name:"NASDAQ 100",symbol:"NDX",value:"24.815,40",change:1.12,region:"USA"},
+{name:"Dow Jones",symbol:"DJIA",value:"47.250,80",change:0.56,region:"USA"},
+{name:"DAX",symbol:"DAX",value:"23.905,20",change:-0.32,region:"Deutschland"},
+{name:"EURO STOXX 50",symbol:"SX5E",value:"5.512,70",change:0.47,region:"Europa"},
+{name:"FTSE 100",symbol:"UKX",value:"9.540,20",change:0.21,region:"UK"},
+{name:"Nikkei 225",symbol:"N225",value:"49.220,50",change:-0.41,region:"Japan"},
+{name:"Hang Seng",symbol:"HSI",value:"25.420,30",change:0.73,region:"Hongkong"},
+{name:"CAC 40",symbol:"CAC",value:"7.980,40",change:-0.18,region:"Frankreich"}
+];
+
+let favorites=JSON.parse(localStorage.getItem("stockflowFavorites")||"[]");
+let previousPage="dashboard";
+
+function money(value){
+return value.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" USD";
+}
+function percent(value){
+return (value>=0?"+":"")+value.toFixed(2).replace(".",",")+" %";
+}
+function companyCell(stock){
+return `<div class="company"><div class="company-icon">${stock.symbol.slice(0,1)}</div><div><div>${stock.name}</div><div class="company-symbol">${stock.symbol}</div></div></div>`;
+}
+function favoriteButton(symbol){
+return `<button class="star ${favorites.includes(symbol)?"active":""}" data-star="${symbol}" aria-label="Watchlist umschalten">${favorites.includes(symbol)?"★":"☆"}</button>`;
+}
+function stockRow(stock,showRegion=false){
+return `<tr>
+<td><button class="row-button" data-profile="${stock.symbol}">${companyCell(stock)}</button></td>
+${showRegion?`<td>${stock.region}</td>`:""}
+<td>${money(stock.price)}</td>
+<td class="${stock.change>=0?"green":"red"}">${percent(stock.change)}</td>
+${showRegion?`<td>${stock.cap}</td>`:`<td>${favoriteButton(stock.symbol)}</td>`}
+${showRegion?"<td>"+favoriteButton(stock.symbol)+"</td>":""}
+</tr>`;
+}
+function renderDashboard(){
+document.getElementById("dashboardStocks").innerHTML=stocks.slice(0,5).map(stock=>`<tr>
+<td><button class="row-button" data-profile="${stock.symbol}">${companyCell(stock)}</button></td>
+<td>${money(stock.price)}</td>
+<td class="${stock.change>=0?"green":"red"}">${percent(stock.change)}</td>
+<td>${favoriteButton(stock.symbol)}</td>
+</tr>`).join("");
+}
+function renderStocks(){
+let query=document.getElementById("stockSearch").value.toLowerCase();
+let region=document.getElementById("stockRegion").value;
+let sort=document.getElementById("stockSort").value;
+let list=stocks.filter(s=>(s.name.toLowerCase().includes(query)||s.symbol.toLowerCase().includes(query))&&(region==="all"||s.region===region));
+if(sort==="price")list.sort((a,b)=>b.price-a.price);
+if(sort==="change")list.sort((a,b)=>b.change-a.change);
+if(sort==="changeLow")list.sort((a,b)=>a.change-b.change);
+if(sort==="name")list.sort((a,b)=>a.name.localeCompare(b.name));
+document.getElementById("stockTable").innerHTML=list.length?list.map(s=>stockRow(s,true)).join():"<tr><td colspan='6' class='empty'>Keine Aktien gefunden.</td></tr>";
+}
+function renderEtfs(){
+let query=document.getElementById("etfSearch").value.toLowerCase();
+let list=etfs.filter(e=>(e.name+" "+e.index+" "+e.isin).toLowerCase().includes(query));
+document.getElementById("etfTable").innerHTML=list.length?list.map(e=>`<tr><td><strong>${e.name}</strong></td><td>${e.isin}</td><td>${e.index}</td><td>${e.fee}</td><td>${e.type}</td></tr>`).join(""):"<tr><td colspan='5' class='empty'>Keine ETFs gefunden.</td></tr>";
+}
+function renderIndices(){
+document.getElementById("indexGrid").innerHTML=indices.map(i=>`<div class="index-card"><h3>${i.name}</h3><div class="muted">${i.region} · ${i.symbol}</div><strong>${i.value}</strong><span class="${i.change>=0?"green":"red"}">${percent(i.change)}</span></div>`).join("");
+}
+function renderWatchlist(){
+let list=stocks.filter(s=>favorites.includes(s.symbol));
+document.getElementById("watchlistTable").innerHTML=list.length?list.map(s=>`<tr><td>${companyCell(s)}</td><td>${s.symbol}</td><td>${money(s.price)}</td><td class="${s.change>=0?"green":"red"}">${percent(s.change)}</td><td>${favoriteButton(s.symbol)}</td></tr>`).join(""):"<tr><td colspan='5' class='empty'>Deine Watchlist ist noch leer. Speichere Aktien über das Sternsymbol.</td></tr>";
+}
+function renderGlobalSearch(){
+let q=document.getElementById("globalSearch").value.toLowerCase();
+let foundStocks=stocks.filter(s=>(s.name+" "+s.symbol).toLowerCase().includes(q));
+let foundEtfs=etfs.filter(e=>(e.name+" "+e.index+" "+e.isin).toLowerCase().includes(q));
+let rows=foundStocks.map(s=>`<tr><td>${companyCell(s)}</td><td>Aktie</td><td>${s.symbol}</td><td>${money(s.price)}</td><td><button class="row-button" data-profile="${s.symbol}">Profil öffnen →</button></td></tr>`);
+rows.push(...foundEtfs.map(e=>`<tr><td>${e.name}</td><td>ETF</td><td>${e.isin}</td><td>–</td><td>${e.index}</td></tr>`));
+document.getElementById("globalResults").innerHTML=rows.length?rows.join(""):"<tr><td colspan='5' class='empty'>Keine Ergebnisse.</td></tr>";
+}
+function showProfile(symbol){
+let s=stocks.find(x=>x.symbol===symbol);
+if(!s)return;
+previousPage=document.querySelector(".page.active").id;
+document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+document.getElementById("profile").classList.add("active");
+document.getElementById("profileName").textContent=s.name;
+document.getElementById("profileSymbol").textContent=s.symbol+" · "+s.region;
+document.getElementById("profilePrice").textContent=money(s.price);
+document.getElementById("profileChange").textContent=percent(s.change);
+document.getElementById("profileChange").className="stat-value "+(s.change>=0?"green":"red");
+document.getElementById("profileCap").textContent=s.cap;
+document.getElementById("profilePE").textContent=s.pe;
+document.getElementById("profileEPS").textContent=s.eps;
+document.getElementById("profileRevenue").textContent=s.revenue;
+document.getElementById("profileMargin").textContent=s.margin;
+document.getElementById("profileROE").textContent=s.roe;
+document.getElementById("profileDividend").textContent=s.dividend;
+document.getElementById("profileRegion").textContent=s.region;
+document.getElementById("breadcrumb").textContent="Aktien / "+s.name;
+window.scrollTo(0,0);
+}
+function goPage(id){
+document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+document.getElementById(id).classList.add("active");
+document.querySelectorAll(".nav-button").forEach(b=>b.classList.toggle("active",b.dataset.page===id));
+const names={dashboard:"Dashboard / Übersicht",stocks:"Aktien / Übersicht",etfs:"ETFs / Übersicht",markets:"Märkte / Weltweit",watchlist:"Watchlist / Gespeichert",search:"Suche / Alle Assets"};
+document.getElementById("breadcrumb").textContent=names[id]||id;
+if(id==="stocks")renderStocks();
+if(id==="etfs")renderEtfs();
+if(id==="markets")renderIndices();
+if(id==="watchlist")renderWatchlist();
+window.scrollTo(0,0);
+}
+document.querySelectorAll(".nav-button").forEach(b=>b.addEventListener("click",()=>goPage(b.dataset.page)));
+document.getElementById("backButton").addEventListener("click",()=>goPage(previousPage));
+document.getElementById("stockSearch").addEventListener("input",renderStocks);
+document.getElementById("stockRegion").addEventListener("change",renderStocks);
+document.getElementById("stockSort").addEventListener("change",renderStocks);
+document.getElementById("etfSearch").addEventListener("input",renderEtfs);
+document.getElementById("globalSearch").addEventListener("input",renderGlobalSearch);
+
+document.addEventListener("click",e=>{
+let profile=e.target.closest("[data-profile]");
+if(profile){showProfile(profile.dataset.profile);return;}
+let star=e.target.closest("[data-star]");
+if(star){
+let symbol=star.dataset.star;
+favorites=favorites.includes(symbol)?favorites.filter(x=>x!==symbol):[...favorites,symbol];
+localStorage.setItem("stockflowFavorites",JSON.stringify(favorites));
+renderDashboard();
+renderStocks();
+renderWatchlist();
+}
 });
-</script>
 
+function drawChart(){
+let canvas=document.getElementById("mainChart");
+if(!canvas)return;
+let rect=canvas.getBoundingClientRect();
+if(!rect.width)return;
+let ratio=window.devicePixelRatio||1;
+canvas.width=rect.width*ratio;
+canvas.height=rect.height*ratio;
+let ctx=canvas.getContext("2d");
+ctx.scale(ratio,ratio);
+let w=rect.width,h=rect.height;
+ctx.strokeStyle="#282c34";
+ctx.lineWidth=1;
+for(let i=1;i<5;i++){
+let y=h*i/5;
+ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();
+}
+let points=[.75,.72,.77,.68,.71,.59,.63,.52,.56,.43,.47,.36,.39,.29,.34,.23,.27,.17,.20,.13];
+let gradient=ctx.createLinearGradient(0,0,0,h);
+gradient.addColorStop(0,"rgba(255,121,0,.25)");
+gradient.addColorStop(1,"rgba(255,121,0,0)");
+ctx.beginPath();
+points.forEach((v,i)=>{
+let x=i*w/(points.length-1),y=v*h;
+if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+});
+ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
+ctx.fillStyle=gradient;ctx.fill();
+ctx.beginPath();
+points.forEach((v,i)=>{
+let x=i*w/(points.length-1),y=v*h;
+if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+});
+ctx.strokeStyle="#ff7900";ctx.lineWidth=2;ctx.stroke();
+}
+renderDashboard();
+renderStocks();
+renderEtfs();
+renderIndices();
+renderWatchlist();
+renderGlobalSearch();
+requestAnimationFrame(drawChart);
+</script>
 </body>
 </html>
-
