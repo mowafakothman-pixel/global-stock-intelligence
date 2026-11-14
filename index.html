@@ -135,6 +135,17 @@ button{cursor:pointer}
 .footer{color:#666e7b;font-size:10px;margin-top:25px;line-height:1.7}
 ol.steps{margin:8px 0 0;padding-left:20px;color:#c5cad3}
 ol.steps li{margin:4px 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:5px 6px 5px 11px;font-weight:700}
+.chip button{background:none;border:0;color:var(--muted);padding:0 5px;font-size:14px}
+.chip button:hover{color:var(--red)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:800;background:#20242d;color:#c5cad3}
+.badge.hit{background:#0e2a1f;color:#6fe0b4}
+.badge.on{background:#20170f;color:var(--orange)}
+.legend-line{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12px}
+.legend-line span{display:inline-flex;align-items:center;gap:6px}
+.tip div{display:flex;gap:10px;justify-content:space-between}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 
 @media(max-width:900px){
   .app{grid-template-columns:190px minmax(0,1fr)}
@@ -175,10 +186,11 @@ ol.steps li{margin:4px 0}
     <a href="#/dashboard" data-page="dashboard"><span class="ico">▦</span><span>Dashboard</span></a>
     <a href="#/explore" data-page="explore"><span class="ico">⌕</span><span>Entdecken</span></a>
     <a href="#/watchlist" data-page="watchlist"><span class="ico">☆</span><span>Watchlist</span></a>
-    <a href="#/portfolio" data-page="portfolio"><span class="ico">◔</span><span>Portfolio</span></a>
-    <a href="#/settings" data-page="settings"><span class="ico">⚙</span><span>Einstellungen</span></a>
+    <a href="#/portfolio" data-page="portfolio"><span class="ico">▣</span><span>Portfolio</span></a>
+    <a href="#/compare" data-page="compare"><span class="ico">⇄</span><span>Vergleich</span></a>
+    <a href="#/settings" data-page="settings"><span class="ico">⚙</span><span>Optionen</span></a>
   </nav>
-  <div class="side-note">StockFlow 5.0<br><b>Global Market Explorer</b><br><br>Keine Anlageberatung.</div>
+  <div class="side-note">StockFlow 6.0<br><b>Global Market Explorer</b><br><br>Keine Anlageberatung.</div>
 </aside>
 <main class="main">
   <header class="topbar">
@@ -197,7 +209,7 @@ ol.steps li{margin:4px 0}
 
 /* ---------- Konfiguration ---------- */
 const DATA_URL="https://raw.githubusercontent.com/adanos-software/free-ticker-database/main/data/tickers.csv";
-const LS={watch:"stockflow_v4_watchlist",port:"stockflow_v5_portfolio",set:"stockflow_v5_settings",quotes:"stockflow_v5_quotes"};
+const LS={watch:"stockflow_v4_watchlist",port:"stockflow_v5_portfolio",set:"stockflow_v5_settings",quotes:"stockflow_v5_quotes",alerts:"stockflow_v6_alerts"};
 const API_BASE="https://api.twelvedata.com/";
 const API_LIMIT=7;            // Free-Tarif: 8 Credits/Minute, ein Credit Reserve
 const MIC={"NASDAQ":"XNAS","NYSE":"XNYS","NYSE Arca":"ARCX","NYSE American":"XASE","XETRA":"XETR","LSE":"XLON","TSE":"XTKS","SIX":"XSWX","EURONEXT":"XPAR","Euronext Amsterdam":"XAMS"};
@@ -214,10 +226,11 @@ const POPULAR=["AAPL","MSFT","NVDA","AMZN","GOOGL","SAP","VWCE","IWDA"];
 const PAL=["#ff7900","#24c78a","#4c8dff","#c26bff","#ffd23f","#ff5d65","#35d0e0","#8c929e"];
 
 /* ---------- State & Helfer ---------- */
-const S={all:[],stocks:[],etfs:[],byKey:new Map(),extra:new Map(),watch:new Set(),port:[],settings:{apiKey:""},quotes:{},errors:{},
+const S={all:[],stocks:[],etfs:[],byKey:new Map(),extra:new Map(),watch:new Set(),port:[],settings:{apiKey:""},quotes:{},errors:{},alerts:[],cmp:{keys:[],range:"6M"},
   loading:true,offline:false,queueWait:0,modal:null,
   ex:{tab:"all",q:"",country:"",sector:"",sort:"name",limit:100}};
 let current={name:"",update:null,redraw:null};
+const PF={range:"6M"};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -239,16 +252,20 @@ const compact=n=>n==null||!isFinite(n)?"—":new Intl.NumberFormat("de-DE",{nota
 const fmtInt=n=>new Intl.NumberFormat("de-DE").format(n);
 function fmtDate(d){const t=new Date(String(d).slice(0,10)+"T00:00:00Z");return isNaN(t)?String(d):t.toLocaleDateString("de-DE",{timeZone:"UTC",day:"2-digit",month:"2-digit",year:"numeric"});}
 const fmtTime=ms=>new Date(ms).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
-function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;$("toasts").appendChild(t);setTimeout(()=>t.remove(),3500);}
+function toast(msg,ms){const t=document.createElement("div");t.className="toast";t.textContent=msg;$("toasts").appendChild(t);setTimeout(()=>t.remove(),ms||3500);}
+function fmtDT(ms){return new Date(ms).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}
+function saveBlob(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 function loadState(){
   try{S.watch=new Set((lsGet(LS.watch,[])||[]).map(String));}catch(e){S.watch=new Set();}
   const p=lsGet(LS.port,[]);S.port=Array.isArray(p)?p.filter(x=>x&&x.key&&x.qty>0):[];
   const st=lsGet(LS.set,{});S.settings={apiKey:String(st.apiKey||"")};
   const q=lsGet(LS.quotes,{});S.quotes=q&&typeof q==="object"?q:{};
+  const al=lsGet(LS.alerts,[]);S.alerts=Array.isArray(al)?al.filter(a=>a&&a.key&&isFinite(a.price)&&(a.dir==="above"||a.dir==="below")):[];
 }
 const saveWatch=()=>lsSet(LS.watch,[...S.watch]);
 const savePort=()=>lsSet(LS.port,S.port);
 const saveSettings=()=>lsSet(LS.set,S.settings);
+const saveAlerts=()=>lsSet(LS.alerts,S.alerts);
 function saveQuotes(){const ents=Object.entries(S.quotes);if(ents.length>300){ents.sort((a,b)=>b[1].t-a[1].t);S.quotes=Object.fromEntries(ents.slice(0,300));}lsSet(LS.quotes,S.quotes);}
 
 /* ---------- Stammdaten ---------- */
@@ -349,7 +366,7 @@ function getQuote(x,force){
   const k=keyOf(x);
   if(!force&&fresh(k,60000))return Promise.resolve(S.quotes[k].q);
   if(inflight.has(k))return inflight.get(k);
-  const p=td("quote",{symbol:x.ticker,mic_code:MIC[x.exchange]}).then(j=>{const q=normQuote(j);if(q.price==null)throw new Error("Keine Kursdaten erhalten.");S.quotes[k]={t:Date.now(),q};saveQuotes();return q;}).finally(()=>inflight.delete(k));
+  const p=td("quote",{symbol:x.ticker,mic_code:MIC[x.exchange]}).then(j=>{const q=normQuote(j);if(q.price==null)throw new Error("Keine Kursdaten erhalten.");S.quotes[k]={t:Date.now(),q};saveQuotes();checkAlerts();return q;}).finally(()=>inflight.delete(k));
   inflight.set(k,p);return p;
 }
 function loadQuotes(list,opt={}){
@@ -365,7 +382,8 @@ async function getSeries(x,r){
   const k=keyOf(x)+"|"+r;const c=seriesCache.get(k);if(c&&Date.now()-c.t<900000)return c.v;
   const R=RANGES[r];
   const j=await td("time_series",{symbol:x.ticker,mic_code:MIC[x.exchange],interval:R.iv,outputsize:R.n});
-  const v=(j.values||[]).map(p=>({d:p.datetime,c:Number(p.close)})).filter(p=>isFinite(p.c)).reverse();
+  const v=(j.values||[]).map(p=>({d:String(p.datetime).slice(0,10),c:Number(p.close)})).filter(p=>isFinite(p.c)).reverse();
+  v.cur=(j.meta&&j.meta.currency)||"";
   seriesCache.set(k,{t:Date.now(),v});return v;
 }
 
@@ -376,13 +394,13 @@ function route(){
   const h=(location.hash||"#/dashboard").slice(2);
   let page="dashboard",arg="";
   if(h.startsWith("i/")){page="detail";arg=decodeURIComponent(h.slice(2));}
-  else if(["dashboard","explore","watchlist","portfolio","settings"].includes(h.split("?")[0]))page=h.split("?")[0];
+  else if(["dashboard","explore","watchlist","portfolio","compare","settings"].includes(h.split("?")[0]))page=h.split("?")[0];
   const nav=page==="detail"?"explore":page;
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.page===nav));
-  const titles={dashboard:"Dashboard",explore:"Entdecken",watchlist:"Watchlist",portfolio:"Portfolio",settings:"Einstellungen",detail:"Instrument"};
+  const titles={dashboard:"Dashboard",explore:"Entdecken",watchlist:"Watchlist",portfolio:"Portfolio",compare:"Vergleich",settings:"Einstellungen",detail:"Instrument"};
   $("pageTitle").textContent=titles[page];
   window.scrollTo(0,0);
-  ({dashboard:pageDashboard,explore:pageExplore,watchlist:pageWatchlist,portfolio:pagePortfolio,settings:pageSettings,detail:()=>pageDetail(arg)})[page]();
+  ({dashboard:pageDashboard,explore:pageExplore,watchlist:pageWatchlist,portfolio:pagePortfolio,compare:pageCompare,settings:pageSettings,detail:()=>pageDetail(arg)})[page]();
 }
 window.addEventListener("hashchange",route);
 
@@ -401,7 +419,7 @@ function keyNotice(){return S.settings.apiKey?"":`<div class="notice">Kursdaten 
 
 /* ---------- Dashboard ---------- */
 function pageDashboard(){
-  const pg=mount(`<div class="grid stats" id="dStats"></div>
+  const pg=mount(`<div id="dAlertNote"></div><div class="grid stats" id="dStats"></div>
   <div class="grid dashboard-grid">
     <div>
       <section class="panel"><div class="panel-head"><h2>Markt-Snapshot</h2><button class="action" data-act="refreshsnap">Aktualisieren</button></div><div id="dSnap"></div><div class="mini" style="margin-top:10px">Angezeigt werden ETFs, die die Indizes abbilden – keine Indexstände.</div></section>
@@ -415,6 +433,8 @@ function pageDashboard(){
   const watchList=()=>[...S.watch].map(inst).filter(Boolean);
   pg.update=()=>{
     if(!$("dStats"))return;
+    const hit=S.alerts.filter(a=>a.triggered).length;
+    $("dAlertNote").innerHTML=hit?`<div class="notice"><b>${hit} Kursalarm${hit>1?"e":""} ausgelöst.</b> <a href="#/watchlist" style="color:#fff;text-decoration:underline">Details ansehen</a></div>`:"";
     const sum=portfolioSummary();
     const pv=sum.length?sum.map(s=>s.nq?money(s.val,s.cur):money(s.cost,s.cur)).join(" · "):"—";
     const pvSmall=sum.length?(sum.every(s=>s.nq===s.n)?"aktueller Wert":"teils Einstandswert"):"noch keine Positionen";
@@ -488,14 +508,16 @@ function pageExplore(){
 
 /* ---------- Watchlist ---------- */
 function pageWatchlist(){
-  const pg=mount(`${keyNotice()}<section class="panel"><div class="panel-head"><h2>Gespeicherte Instrumente</h2><div><span class="mini" id="wlCount"></span> <button class="action" data-act="refreshwl">Kurse aktualisieren</button></div></div><div id="wlBody"></div><div class="mini" style="margin-top:10px">Der kostenlose Kurstarif erlaubt etwa 8 Abrufe pro Minute – bei langen Listen kann das Aktualisieren etwas dauern.</div></section>`);
+  const pg=mount(`${keyNotice()}<section class="panel"><div class="panel-head"><h2>Gespeicherte Instrumente</h2><div><span class="mini" id="wlCount"></span> <button class="action" data-act="refreshwl">Kurse aktualisieren</button></div></div><div id="wlBody"></div><div class="mini" style="margin-top:10px">Der kostenlose Kurstarif erlaubt etwa 8 Abrufe pro Minute – bei langen Listen kann das Aktualisieren etwas dauern.</div></section>
+  <section class="panel"><div class="panel-head"><h2>Kursalarme</h2><button class="action primary" data-act="addalert">+ Alarm</button></div><div id="wlAlerts"></div></section>`);
   const list=()=>[...S.watch].map(inst).filter(Boolean);
   pg.update=()=>{
     if(!$("wlBody"))return;
+    $("wlAlerts").innerHTML=alertsHTML();
     const a=list();$("wlCount").textContent=a.length+" gespeichert";
     $("wlBody").innerHTML=a.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Instrument</th><th>Börse</th><th class="num">Kurs</th><th class="num">Änderung</th><th class="num">Stand</th><th></th></tr></thead><tbody>${a.map(x=>{const k=keyOf(x),e=S.quotes[k];return `<tr><td>${instCell(x)}</td><td>${esc(x.exchange||"—")}</td>${quoteCells(k)}<td class="num mini">${e?fmtTime(e.t):"—"}</td><td class="num"><button class="action" data-act="addpos" data-key="${esc(k)}">+ Position</button> ${starBtn(k)}</td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty">Deine Watchlist ist noch leer.<br><a class="action primary" style="margin-top:12px" href="#/explore">Instrumente entdecken</a></div>`;
   };
-  pg.update();loadQuotes(list(),{max:8});
+  pg.update();loadQuotes([...list(),...S.alerts.filter(a=>!a.triggered).map(a=>inst(a.key))],{max:10});
 }
 
 /* ---------- Portfolio ---------- */
@@ -505,11 +527,11 @@ function posCalc(p){
   const mismatch=normCur(q.currency)!==normCur(p.cur)&&!!q.currency;
   if(mismatch)return{cost,val:null,pl:null,pct:null,q,mismatch:true};
   const val=p.qty*q.price,pl=val-cost;
-  return{cost,val,pl,pct:cost>0?pl/cost*100:null,q,mismatch:false};
+  return{cost,val,pl,pct:cost>0?pl/cost*100:null,q,mismatch:false,day:q.change!=null?p.qty*q.change:null};
 }
 function portfolioSummary(){
   const m={};
-  S.port.forEach(p=>{const c=posCalc(p),cur=normCur(p.cur)||"?";const g=m[cur]||(m[cur]={cur,cost:0,val:0,costQ:0,n:0,nq:0});g.cost+=c.cost;g.n++;if(c.val!=null){g.val+=c.val;g.costQ+=c.cost;g.nq++;}});
+  S.port.forEach(p=>{const c=posCalc(p),cur=normCur(p.cur)||"?";const g=m[cur]||(m[cur]={cur,cost:0,val:0,costQ:0,n:0,nq:0,day:0,dayN:0});g.cost+=c.cost;g.n++;if(c.val!=null){g.val+=c.val;g.costQ+=c.cost;g.nq++;if(c.day!=null){g.day+=c.day;g.dayN++;}}});
   return Object.values(m).sort((a,b)=>b.cost-a.cost);
 }
 function allocationHTML(){
@@ -524,17 +546,38 @@ function allocationHTML(){
   return `<div class="donut-wrap"><svg viewBox="0 0 160 160" role="img" aria-label="Verteilung">${segs}</svg><div class="legend">${items.map((it,i)=>`<div><span class="dot" style="background:${PAL[i%PAL.length]}"></span><span style="flex:1">${esc(it.label)}</span><b>${nf(it.value/total*100,1)} %</b></div>`).join("")}<div class="mini">Währung: ${esc(cur)} · nach Wert, sonst Einstand</div></div></div>`;
 }
 function pagePortfolio(){
-  const pg=mount(`${keyNotice()}<div id="pfSum"></div><section class="panel"><div class="panel-head"><h2>Positionen</h2><div><button class="action" data-act="refreshpf">Kurse aktualisieren</button> <button class="action primary" data-act="addpos">+ Position</button></div></div><div id="pfBody"></div></section><section class="panel"><div class="panel-head"><h2>Verteilung</h2></div><div id="pfAlloc"></div></section>`);
+  const pg=mount(`${keyNotice()}<div id="pfSum"></div><section class="panel"><div class="panel-head"><h2>Positionen</h2><div><button class="action" data-act="refreshpf">Kurse aktualisieren</button> <button class="action primary" data-act="addpos">+ Position</button></div></div><div id="pfBody"></div></section><section class="panel"><div class="panel-head"><h2>Wertentwicklung</h2><div class="ranges" id="pfRanges">${["3M","6M","1J"].map(r=>`<button class="range ${r===PF.range?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div><div id="pfChartInfo" class="mini" style="margin-bottom:8px"></div><div class="chart-box" id="pfChart"></div><div class="legend-line"><span><span class="dot" style="background:#ff7900"></span>Wert</span><span><span class="dot" style="background:#8c929e"></span>Einstand</span></div><div class="mini" style="margin-top:8px">Berechnet aus den Tagesschlusskursen und deinen Kaufdaten. Käufe erhöhen Wert und Einstand ab dem Kaufdatum.</div></section><section class="panel"><div class="panel-head"><h2>Verteilung</h2></div><div id="pfAlloc"></div></section>`);
   pg.update=()=>{
     if(!$("pfBody"))return;
     const sum=portfolioSummary();
-    $("pfSum").innerHTML=sum.length?`<div class="grid stats" style="grid-template-columns:repeat(${Math.min(sum.length,4)},minmax(0,1fr))">${sum.map(s=>{const pl=s.nq?s.val-s.costQ:null,pp=s.nq&&s.costQ>0?pl/s.costQ*100:null;return `<div class="stat"><div class="label">Portfolio (${esc(s.cur)})</div><strong>${s.nq?money(s.val+(s.cost-s.costQ),s.cur):money(s.cost,s.cur)}</strong><small>Einstand ${money(s.cost,s.cur)}</small><div class="${sgn(pl)}" style="margin-top:4px">${pl==null?'<span class="muted">Kein Kurs verfügbar</span>':money(pl,s.cur)+" ("+pct(pp)+")"}</div>${s.nq&&s.nq<s.n?`<small>G/V basiert auf ${s.nq} von ${s.n} Positionen</small>`:""}</div>`;}).join("")}</div>`:"";
+    $("pfSum").innerHTML=sum.length?`<div class="grid stats" style="grid-template-columns:repeat(${Math.min(sum.length,4)},minmax(0,1fr))">${sum.map(s=>{const pl=s.nq?s.val-s.costQ:null,pp=s.nq&&s.costQ>0?pl/s.costQ*100:null;return `<div class="stat"><div class="label">Portfolio (${esc(s.cur)})</div><strong>${s.nq?money(s.val+(s.cost-s.costQ),s.cur):money(s.cost,s.cur)}</strong><small>Einstand ${money(s.cost,s.cur)}</small><div class="${sgn(pl)}" style="margin-top:4px">${pl==null?'<span class="muted">Kein Kurs verfügbar</span>':money(pl,s.cur)+" ("+pct(pp)+")"}</div>${s.dayN?`<div class="mini" style="margin-top:2px">Heute: <span class="${sgn(s.day)}">${money(s.day,s.cur)}</span></div>`:""}${s.nq&&s.nq<s.n?`<small>G/V basiert auf ${s.nq} von ${s.n} Positionen</small>`:""}</div>`;}).join("")}</div>`:"";
     const rows=S.port.map(p=>{const x=inst(p.key),c=posCalc(p),k=p.key;
       return `<tr><td>${instCell(x)}</td><td class="num">${nf(p.qty,4).replace(/,?0+$/,"")}</td><td class="num">${money(p.price,p.cur)}<div class="mini">${p.date?fmtDate(p.date):""}</div></td><td class="num">${c.q?money(c.q.price,c.q.currency):'<span class="muted">—</span>'}</td><td class="num">${c.val!=null?money(c.val,p.cur):c.mismatch?'<span class="mini" title="Währung der Position weicht vom Kurs ab">Währung ≠</span>':'<span class="muted">—</span>'}</td><td class="num ${sgn(c.pl)}">${c.pl!=null?money(c.pl,p.cur)+'<div class="mini">'+pct(c.pct)+'</div>':'<span class="muted">—</span>'}</td><td class="num"><button class="action" data-act="editpos" data-id="${esc(p.id)}">✎</button> <button class="action danger" data-act="delpos" data-id="${esc(p.id)}" aria-label="Löschen">✕</button></td></tr>`;}).join("");
     $("pfBody").innerHTML=S.port.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Instrument</th><th class="num">Menge</th><th class="num">Einstand</th><th class="num">Kurs</th><th class="num">Wert</th><th class="num">G/V</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">Noch keine Positionen erfasst.<br><button class="action primary" style="margin-top:12px" data-act="addpos">Erste Position hinzufügen</button></div>`;
     $("pfAlloc").innerHTML=allocationHTML()||`<div class="empty">Sobald du Positionen hast, siehst du hier die Verteilung.</div>`;
   };
   pg.update();loadQuotes(S.port.map(p=>inst(p.key)),{max:10});
+  let hr=PF.range,hist=null;
+  function drawHist(){
+    const box=$("pfChart");if(!box||!hist)return;
+    if(hist.empty){box.innerHTML=`<div class="empty">${esc(hist.empty)}</div>`;$("pfChartInfo").innerHTML="";return;}
+    drawLines(box,hist.dates,[{label:"Wert",color:"#ff7900",vals:hist.vals,w:2.4},{label:"Einstand",color:"#8c929e",vals:hist.costs,dash:"4 4",w:1.6}],{fmt:v=>money(v,hist.cur),axis:v=>compact(v)});
+    const last=hist.dates.length-1;
+    $("pfChartInfo").innerHTML=`Währung ${esc(hist.cur)} · ${fmtDate(hist.dates[0])} – ${fmtDate(hist.dates[last])} · Wert zuletzt <b>${money(hist.vals[last],hist.cur)}</b>, Einstand ${money(hist.costs[last],hist.cur)}`+((hist.partial||(hist.skipped&&hist.skipped.length))?`<br><span style="color:#e9b98f">Nicht berücksichtigt: ${esc((hist.skipped||[]).join(", ")||"Positionen in anderen Währungen")}</span>`:"");
+  }
+  async function loadHist(){
+    const box=$("pfChart");if(!box)return;
+    if(!S.settings.apiKey){box.innerHTML='<div class="empty">Für den Verlauf wird ein API-Schlüssel benötigt.</div>';$("pfChartInfo").innerHTML="";return;}
+    if(!S.port.length){box.innerHTML='<div class="empty">Noch keine Positionen.</div>';$("pfChartInfo").innerHTML="";return;}
+    box.innerHTML='<div class="skeleton" style="height:250px"></div>';$("pfChartInfo").textContent="";
+    const my=hr;hist=null;
+    try{hist=await pfHistory(my);}catch(e){hist={empty:e.message};}
+    if(pg!==current||my!==hr)return;
+    drawHist();
+  }
+  pg.setRange=r=>{PF.range=hr=r;document.querySelectorAll("#pfRanges .range").forEach(b=>b.classList.toggle("active",b.dataset.v===r));loadHist();};
+  pg.redraw=drawHist;pg.refreshHist=loadHist;
+  loadHist();
 }
 function curGuess(x){const q=S.quotes[keyOf(x)]?.q;return (q&&q.currency)||CUR_GUESS[x.exchange]||"";}
 function openModal(html){$("modal").innerHTML=html;$("modalBg").style.display="flex";}
@@ -575,7 +618,8 @@ function pageDetail(key){
   <section class="panel"><div class="hero" id="dHead"></div></section>
   <section class="panel"><div class="panel-head"><h2>Kursverlauf</h2><div class="ranges" id="ranges">${Object.keys(RANGES).map(r=>`<button class="range ${r===rng?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div><div id="chartInfo" class="mini" style="margin-bottom:8px"></div><div class="chart-box" id="chartBox"></div></section>
   <section class="panel"><div class="panel-head"><h2>Kennzahlen</h2></div><div class="metrics" id="dMetrics"></div></section>
-  <section class="panel"><div class="panel-head"><h2>Deine Positionen</h2><button class="action" data-act="addpos" data-key="${esc(key)}">+ Position</button></div><div id="dPos"></div></section>`);
+  <section class="panel"><div class="panel-head"><h2>Deine Positionen</h2><button class="action" data-act="addpos" data-key="${esc(key)}">+ Position</button></div><div id="dPos"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Kursalarme</h2><button class="action" data-act="addalert" data-key="${esc(key)}">+ Alarm</button></div><div id="dAlerts"></div></section>`);
   const cur=()=>S.quotes[key]?.q?.currency||"";
   function head(){
     const e=S.quotes[key],q=e&&e.q,err=S.errors[key];
@@ -584,10 +628,11 @@ function pageDetail(key){
     else if(!S.settings.apiKey)r=`<div class="price muted">—</div><div class="mini">Kursquelle nicht verbunden</div>`;
     else if(err)r=`<div class="price muted">—</div><div class="mini" style="max-width:300px">${esc(err)}</div>`;
     else r=`<div class="skeleton" style="width:160px;height:44px"></div>`;
-    $("dHead").innerHTML=`<div><div class="eyebrow">${typeLabel(x)}</div><h2>${esc(x.name)}</h2><div class="muted">${esc(x.ticker)} · ${esc(x.exchange||"—")}${x.country?" · "+esc(x.country):""}</div><div style="margin-top:12px"><button class="action ${S.watch.has(key)?"primary":""}" data-act="watch" data-key="${esc(key)}">${S.watch.has(key)?"★ In der Watchlist":"☆ Zur Watchlist"}</button></div></div><div class="hero-r">${r}</div>`;
+    $("dHead").innerHTML=`<div><div class="eyebrow">${typeLabel(x)}</div><h2>${esc(x.name)}</h2><div class="muted">${esc(x.ticker)} · ${esc(x.exchange||"—")}${x.country?" · "+esc(x.country):""}</div><div class="btn-row"><button class="action ${S.watch.has(key)?"primary":""}" data-act="watch" data-key="${esc(key)}">${S.watch.has(key)?"★ In der Watchlist":"☆ Zur Watchlist"}</button><button class="action" data-act="addalert" data-key="${esc(key)}">🔔 Alarm</button><button class="action" data-act="cmpadd" data-key="${esc(key)}">⇄ Vergleichen</button></div></div><div class="hero-r">${r}</div>`;
     const m=q?[["Eröffnung",money(q.open,q.currency)],["Tageshoch",money(q.high,q.currency)],["Tagestief",money(q.low,q.currency)],["Vortagesschluss",money(q.prev,q.currency)],["Volumen",compact(q.volume)],["Ø Volumen",compact(q.avgVol)],["52-Wochen-Hoch",money(q.hi52,q.currency)],["52-Wochen-Tief",money(q.lo52,q.currency)]]:[];
     m.push(["ISIN",x.isin||"Nicht verfügbar"],["Land",x.country||"—"],["Branche / Kategorie",x.stock_sector||x.etf_category||"—"],["Börse",x.exchange||"—"]);
     $("dMetrics").innerHTML=m.map(([l,v])=>`<div class="metric"><span>${l}</span><b>${esc(v)}</b></div>`).join("")+(q?"":`<div class="metric"><span>Kurs</span><b>Nicht verbunden</b></div>`);
+    $("dAlerts").innerHTML=alertsHTML(key);
     const ps=S.port.filter(p=>p.key===key);
     $("dPos").innerHTML=ps.length?`<div class="table-wrap"><table class="table" style="min-width:520px"><thead><tr><th class="num">Menge</th><th class="num">Einstand</th><th class="num">Wert</th><th class="num">G/V</th></tr></thead><tbody>${ps.map(p=>{const c=posCalc(p);return `<tr><td class="num">${nf(p.qty,4).replace(/,?0+$/,"")}</td><td class="num">${money(p.price,p.cur)}</td><td class="num">${c.val!=null?money(c.val,p.cur):"—"}</td><td class="num ${sgn(c.pl)}">${c.pl!=null?money(c.pl,p.cur)+" ("+pct(c.pct)+")":"—"}</td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty">Keine Position in diesem Instrument.</div>`;
   }
@@ -635,7 +680,168 @@ function drawChart(box,pts,cur){
   function leave(){cx.setAttribute("visibility","hidden");cd.setAttribute("visibility","hidden");tip.style.display="none";}
   svg.addEventListener("pointermove",move);svg.addEventListener("pointerleave",leave);svg.addEventListener("touchmove",move,{passive:true});svg.addEventListener("touchend",leave);
 }
+function drawLines(box,dates,lines,o){
+  o=o||{};const fmt=o.fmt||(v=>nf(v)),axis=o.axis||fmt,n=dates.length;
+  if(n<2){box.innerHTML='<div class="empty">Keine Verlaufsdaten verfügbar.</div>';return;}
+  const W=Math.max(280,box.clientWidth),H=250,pl=8,pr=70,pt=12,pb=24;
+  let mn=Infinity,mx=-Infinity;
+  lines.forEach(l=>l.vals.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));
+  if(o.zero){mn=Math.min(mn,0);mx=Math.max(mx,0);}
+  const pad=(mx-mn)*.08||Math.abs(mx)*.02||1,lo=mn-pad,hi=mx+pad;
+  const X=i=>pl+i*(W-pl-pr)/(n-1),Y=v=>pt+(hi-v)*(H-pt-pb)/(hi-lo);
+  let grid="";
+  for(let t=0;t<4;t++){const v=lo+(hi-lo)*t/3,y=Y(v).toFixed(1);grid+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="#262a33" stroke-dasharray="3 4"/><text x="${W-pr+6}" y="${(+y+4).toFixed(1)}" fill="#8c929e" font-size="10">${esc(axis(v))}</text>`;}
+  const zero=o.zero?`<line x1="${pl}" x2="${W-pr}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#4a505c"/>`:"";
+  const xl=[[0,"start"],[Math.floor((n-1)/2),"middle"],[n-1,"end"]].map(([i,a])=>`<text x="${X(i).toFixed(1)}" y="${H-6}" fill="#8c929e" font-size="10" text-anchor="${a}">${fmtDate(dates[i])}</text>`).join("");
+  const paths=lines.map(l=>`<path d="${l.vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join("")}" fill="none" stroke="${l.color}" stroke-width="${l.w||2}"${l.dash?` stroke-dasharray="${l.dash}"`:""} stroke-linejoin="round"/>`).join("");
+  const dots=lines.map(l=>`<circle class="ld" r="4" fill="${l.color}" stroke="#111318" stroke-width="2" visibility="hidden"/>`).join("");
+  box.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${grid}${zero}${xl}${paths}<line class="lx" y1="${pt}" y2="${H-pb}" stroke="#8c929e" stroke-dasharray="3 3" visibility="hidden"/>${dots}</svg><div class="tip" style="display:none"></div>`;
+  const svg=box.querySelector("svg"),lx=box.querySelector(".lx"),ld=box.querySelectorAll(".ld"),tip=box.querySelector(".tip");
+  function move(ev){
+    const r=svg.getBoundingClientRect(),px=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-pl)/(W-pl-pr)*(n-1))));
+    const x=X(i);
+    lx.setAttribute("x1",x);lx.setAttribute("x2",x);lx.setAttribute("visibility","visible");
+    lines.forEach((l,j)=>{ld[j].setAttribute("cx",x);ld[j].setAttribute("cy",Y(l.vals[i]));ld[j].setAttribute("visibility","visible");});
+    tip.style.display="block";
+    tip.innerHTML=`<div style="color:var(--muted)">${fmtDate(dates[i])}</div>`+lines.map(l=>`<div><span style="color:${l.color}">● ${esc(l.label)}</span><b>${esc(fmt(l.vals[i]))}</b></div>`).join("");
+    tip.style.left=Math.max(4,Math.min(W-pr-tip.offsetWidth,x+10))+"px";
+  }
+  function leave(){lx.setAttribute("visibility","hidden");ld.forEach(d=>d.setAttribute("visibility","hidden"));tip.style.display="none";}
+  svg.addEventListener("pointermove",move);svg.addEventListener("pointerleave",leave);svg.addEventListener("touchmove",move,{passive:true});svg.addEventListener("touchend",leave);
+}
 let rsTimer;window.addEventListener("resize",()=>{clearTimeout(rsTimer);rsTimer=setTimeout(()=>{if(current.redraw)current.redraw();},150);});
+
+/* ---------- Portfolio-Verlauf ---------- */
+async function pfHistory(range){
+  const sum=portfolioSummary();if(!sum.length)return{empty:"Noch keine Positionen."};
+  const cur=sum[0].cur;
+  const pos=S.port.filter(p=>(normCur(p.cur)||"?")===cur);
+  const keys=[...new Set(pos.map(p=>p.key))].slice(0,8);
+  const ser={},skipped=[];
+  for(const k of keys){
+    const x=inst(k);
+    try{const s=await getSeries(x,range);if(s.cur&&normCur(s.cur)!==cur){skipped.push(x.ticker+" (Währung "+s.cur+")");continue;}ser[k]=s;}
+    catch(e){skipped.push(x.ticker);}
+  }
+  const used=pos.filter(p=>ser[p.key]&&ser[p.key].length);
+  if(!used.length)return{empty:"Für deine Positionen liegen keine Verlaufsdaten vor.",skipped};
+  const dset=new Set();used.forEach(p=>ser[p.key].forEach(pt=>dset.add(pt.d)));
+  const dates=[...dset].sort(),idx={};
+  keys.forEach(k=>idx[k]=-1);
+  const od=[],vals=[],costs=[];
+  for(const d of dates){
+    for(const k of keys){const s=ser[k];if(!s)continue;while(idx[k]+1<s.length&&s[idx[k]+1].d<=d)idx[k]++;}
+    let v=0,c=0,n=0;
+    for(const p of used){
+      if(p.date&&p.date>d)continue;
+      const i=idx[p.key];if(i<0)continue;
+      v+=p.qty*ser[p.key][i].c;c+=p.qty*p.price;n++;
+    }
+    if(n){od.push(d);vals.push(v);costs.push(c);}
+  }
+  if(od.length<2)return{empty:"Im gewählten Zeitraum gibt es noch zu wenige Datenpunkte (Positionen zählen erst ab ihrem Kaufdatum).",skipped};
+  return{dates:od,vals,costs,cur,skipped,partial:used.length<pos.length};
+}
+
+/* ---------- Kursalarme ---------- */
+function checkAlerts(){
+  let changed=false;
+  S.alerts.forEach(a=>{
+    if(a.triggered)return;
+    const q=S.quotes[a.key]&&S.quotes[a.key].q;if(!q||q.price==null)return;
+    if(a.cur&&q.currency&&normCur(a.cur)!==normCur(q.currency))return;
+    if(!(a.dir==="above"?q.price>=a.price:q.price<=a.price))return;
+    a.triggered=Date.now();a.hit=q.price;changed=true;
+    const x=inst(a.key),msg="Alarm: "+(x?x.ticker:a.key)+" "+(a.dir==="above"?"≥ ":"≤ ")+nf(a.price)+" (aktuell "+money(q.price,q.currency)+")";
+    toast(msg,9000);
+    try{if("Notification" in window&&Notification.permission==="granted")new Notification("StockFlow",{body:msg});}catch(e){}
+  });
+  if(changed){saveAlerts();if(current.update)current.update();}
+}
+function alertsHTML(key){
+  const list=(key?S.alerts.filter(a=>a.key===key):S.alerts).slice().sort((a,b)=>(a.triggered?1:0)-(b.triggered?1:0));
+  if(!list.length)return `<div class="empty">Keine Alarme gesetzt. Du wirst benachrichtigt, sobald ein Kurs deine Schwelle erreicht – solange StockFlow im Browser geöffnet ist.</div>`;
+  return list.map(a=>{
+    const x=inst(a.key);
+    return `<div class="row"><div>${key?"":instCell(x)}<div class="${key?"":"sub"}">Kurs ${a.dir==="above"?"≥":"≤"} <b>${money(a.price,a.cur)}</b></div></div><div class="row-r">${a.triggered?`<span class="badge hit">ausgelöst ${fmtDT(a.triggered)}</span><div class="mini">bei ${money(a.hit,a.cur)}</div>`:`<span class="badge on">aktiv</span>`} ${a.triggered?`<button class="action" data-act="rearm" data-id="${esc(a.id)}">Neu scharf</button>`:""} <button class="action danger" data-act="delalert" data-id="${esc(a.id)}" aria-label="Alarm löschen">✕</button></div></div>`;
+  }).join("");
+}
+function pickBlock(){return `<input class="field" id="pmSearch" placeholder="Symbol, Name oder ISIN …" style="width:100%;margin:14px 0" autocomplete="off"><div id="pmResults" class="pick-list"><div class="empty">Tippe, um zu suchen.</div></div>`;}
+function alertModalHTML(){
+  const x=S.modal.x;
+  const head=`<div class="modal-top"><div><div class="eyebrow">KURSALARM</div><h2>${x?esc(x.name):"Instrument wählen"}</h2>${x?`<div class="muted">${esc(x.ticker)} · ${esc(x.exchange)}</div>`:""}</div><button class="action" data-act="closeModal" aria-label="Schließen">✕</button></div>`;
+  if(!x)return head+pickBlock();
+  const q=S.quotes[keyOf(x)]&&S.quotes[keyOf(x)].q;
+  return head+`<form id="alForm" class="form-grid">
+    <label>Bedingung<select class="field" id="alDir"><option value="above">Kurs steigt auf / über …</option><option value="below">Kurs fällt auf / unter …</option></select></label>
+    <label>Schwellenwert${q&&q.currency?" ("+esc(q.currency)+")":""}<input class="field" id="alPrice" type="number" step="any" min="0" required value="${q&&q.price!=null?q.price:""}"></label>
+    <div class="full mini">${q?"Aktueller Kurs: "+money(q.price,q.currency)+". ":"Noch kein aktueller Kurs vorhanden – der Alarm wird geprüft, sobald einer geladen ist. "}Alarme werden nur geprüft, solange StockFlow im Browser geöffnet ist (Aktualisierung alle 5 Minuten).</div>
+    <div class="full"><button class="action primary" type="submit">Alarm speichern</button></div></form>`;
+}
+function modalHTML(){return S.modal&&S.modal.mode==="alert"?alertModalHTML():posModalHTML();}
+function openAlertModal(o={}){S.modal={mode:"alert",x:o.key?inst(o.key):null};openModal(modalHTML());setTimeout(()=>($("pmSearch")||$("alPrice"))&&($("pmSearch")||$("alPrice")).focus(),30);}
+function submitAlert(){
+  const M=S.modal;if(!M||!M.x)return;
+  const price=parseFloat($("alPrice").value);if(!(price>0)){toast("Bitte einen gültigen Schwellenwert eingeben.");return;}
+  const x=M.x,k=keyOf(x),q=S.quotes[k]&&S.quotes[k].q;
+  S.alerts.push({id:uid(),key:k,dir:$("alDir").value,price,cur:(q&&q.currency)||curGuess(x)||"",triggered:0});
+  saveAlerts();closeModal();toast("Alarm gespeichert");checkAlerts();
+  if(current.update)current.update();
+  if(S.settings.apiKey&&!fresh(k,300000))loadQuotes([x],{force:true});
+}
+
+/* ---------- Vergleich ---------- */
+function fillCmpPick(){
+  const el=$("cmpResults"),v=$("cmpSearch").value.trim().toLowerCase();
+  if(!v){el.innerHTML="";return;}
+  const r=S.all.filter(x=>x._s.includes(v)).slice(0,8);
+  el.innerHTML=r.length?r.map(x=>`<button class="pick" data-act="cmpadd" data-key="${esc(keyOf(x))}"><span><b>${esc(x.ticker)}</b> · ${esc(x.name)}</span><span class="muted">${esc(x.exchange)}</span></button>`).join(""):'<div class="empty">Keine Treffer.</div>';
+}
+function pageCompare(){
+  const C=S.cmp;let data=null;
+  const pg=mount(`${keyNotice()}<section class="panel"><div class="panel-head"><h2>Instrumente vergleichen</h2><div class="ranges" id="cmpRanges">${["1M","3M","6M","1J","5J"].map(r=>`<button class="range ${r===C.range?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div>
+    <div class="chips" id="cmpChips"></div>
+    <input class="field" id="cmpSearch" placeholder="Instrument hinzufügen (Symbol, Name, ISIN) …" style="width:100%" autocomplete="off">
+    <div id="cmpResults" class="pick-list" style="margin-top:8px"></div>
+    <div id="cmpInfo" class="mini" style="margin:12px 0 8px"></div>
+    <div class="chart-box" id="cmpChart"></div><div class="legend-line" id="cmpLegend"></div>
+    <div class="mini" style="margin-top:10px">Alle Kurse werden auf den Startpunkt des gemeinsamen Zeitraums normiert (0 %). Bis zu 5 Instrumente.</div></section>`);
+  const colorOf=k=>PAL[C.keys.indexOf(k)%PAL.length];
+  function chips(){$("cmpChips").innerHTML=C.keys.length?C.keys.map(k=>{const x=inst(k);return `<span class="chip"><span class="dot" style="background:${colorOf(k)}"></span>${esc(x.ticker)}<button data-act="cmpdel" data-key="${esc(k)}" aria-label="Entfernen">✕</button></span>`;}).join(""):`<span class="mini">Noch keine Instrumente ausgewählt.</span>`;}
+  function paint(){
+    const box=$("cmpChart");if(!box||!data)return;
+    drawLines(box,data.dates,data.lines,{fmt:v=>pct(v),axis:v=>nf(v,0)+" %",zero:true});
+    $("cmpInfo").innerHTML=`Zeitraum ${fmtDate(data.dates[0])} – ${fmtDate(data.dates[data.dates.length-1])}`+(data.bad.length?`<br><span style="color:#e9b98f">Nicht geladen: ${esc(data.bad.join(", "))}</span>`:"");
+    $("cmpLegend").innerHTML=data.lines.map(l=>{const last=l.vals[l.vals.length-1];return `<span><span class="dot" style="background:${l.color}"></span>${esc(l.label)} <b class="${sgn(last)}">${pct(last)}</b></span>`;}).join("");
+  }
+  async function load(){
+    const box=$("cmpChart");if(!box)return;
+    data=null;$("cmpLegend").innerHTML="";$("cmpInfo").textContent="";
+    if(!S.settings.apiKey){box.innerHTML='<div class="empty">Für den Vergleich wird ein API-Schlüssel benötigt.<br><a class="action primary" style="margin-top:12px" href="#/settings">Zu den Einstellungen</a></div>';return;}
+    if(C.keys.length<2){box.innerHTML='<div class="empty">Füge mindestens zwei Instrumente hinzu, um sie zu vergleichen.</div>';return;}
+    box.innerHTML='<div class="skeleton" style="height:250px"></div>';
+    const my=C.range,keys=C.keys.slice();
+    const res=await Promise.all(keys.map(k=>getSeries(inst(k),my).then(s=>({k,s}),e=>({k,err:e.message}))));
+    if(pg!==current||my!==C.range||keys.join()!==C.keys.join())return;
+    const ok=res.filter(r=>r.s&&r.s.length>1),bad=res.filter(r=>!(r.s&&r.s.length>1));
+    if(ok.length<2){box.innerHTML=`<div class="notice err">${esc((bad.find(b=>b.err)||{}).err||"Zu wenige Verlaufsdaten für einen Vergleich.")}</div>`;return;}
+    const start=ok.map(r=>r.s[0].d).reduce((a,b)=>a>b?a:b);
+    const dset=new Set();ok.forEach(r=>r.s.forEach(p=>{if(p.d>=start)dset.add(p.d);}));
+    const dates=[...dset].sort();
+    const lines=ok.map(r=>{
+      let j=-1;const vals=[];let base=null;
+      for(const d of dates){while(j+1<r.s.length&&r.s[j+1].d<=d)j++;if(base==null)base=r.s[Math.max(j,0)].c;vals.push((r.s[Math.max(j,0)].c/base-1)*100);}
+      return{label:inst(r.k).ticker,color:colorOf(r.k),vals,w:2.2};
+    });
+    data={dates,lines,bad:bad.map(b=>inst(b.k).ticker)};
+    paint();
+  }
+  pg.update=chips;pg.redraw=paint;
+  pg.cmpChanged=()=>{const s=$("cmpSearch");if(s)s.value="";const r=$("cmpResults");if(r)r.innerHTML="";chips();load();};
+  pg.setRange=r=>{C.range=r;document.querySelectorAll("#cmpRanges .range").forEach(b=>b.classList.toggle("active",b.dataset.v===r));load();};
+  chips();load();
+}
 
 /* ---------- Einstellungen ---------- */
 function pageSettings(){
@@ -648,10 +854,14 @@ function pageSettings(){
     <div id="keyMsg"></div>
     <div class="mini">Der Schlüssel wird nur in deinem Browser gespeichert und ausschließlich an api.twelvedata.com gesendet. Der Free-Tarif umfasst ca. 8 Abrufe pro Minute und 800 pro Tag und deckt vor allem US-Werte ab; andere Börsen können einen Bezahltarif erfordern. StockFlow bremst Abrufe automatisch.</div>
   </section>
+  <section class="panel"><div class="panel-head"><h2>Benachrichtigungen</h2></div>
+    <p class="muted" style="margin-top:0">Kursalarme erscheinen immer in der App. Zusätzlich kann dein Browser eine Systembenachrichtigung zeigen, solange StockFlow in einem Tab geöffnet ist.</p>
+    <div class="toolbar"><button class="action" data-act="notif">Browser-Benachrichtigungen erlauben</button></div>
+  </section>
   <section class="panel"><div class="panel-head"><h2>Daten sichern</h2></div>
     <p class="muted" style="margin-top:0">Watchlist und Portfolio liegen nur in diesem Browser. Sichere sie regelmäßig als Datei, um sie auf einem anderen Gerät zu verwenden.</p>
-    <div class="toolbar"><button class="action" data-act="export">Backup exportieren</button><label class="action" style="cursor:pointer">Backup importieren<input type="file" id="impFile" accept="application/json,.json" hidden></label><button class="action danger" data-act="reset">Alle Daten löschen</button></div>
-    <div class="mini">${S.watch.size} Watchlist-Einträge · ${S.port.length} Positionen</div>
+    <div class="toolbar"><button class="action" data-act="export">Backup exportieren</button><button class="action" data-act="exportcsv">Portfolio als CSV</button><label class="action" style="cursor:pointer">Backup importieren<input type="file" id="impFile" accept="application/json,.json" hidden></label><button class="action danger" data-act="reset">Alle Daten löschen</button></div>
+    <div class="mini">${S.watch.size} Watchlist-Einträge · ${S.port.length} Positionen · ${S.alerts.length} Alarme</div>
   </section></div>`);
 }
 function keyMsg(html,err){const el=$("keyMsg");if(el)el.innerHTML=`<div class="notice ${err?"err":""}" style="margin:12px 0 0">${html}</div>`;}
@@ -670,9 +880,31 @@ document.addEventListener("click",async e=>{
   if(act==="refreshsnap"){if(!S.settings.apiKey)return toast("Bitte zuerst einen API-Schlüssel hinterlegen.");loadQuotes(SNAP.map(s=>inst(s.ticker+"|"+s.exchange)),{force:true});return;}
   if(act==="addpos"){openPosModal({key});return;}
   if(act==="editpos"){openPosModal({id});return;}
-  if(act==="delpos"){if(confirm("Diese Position löschen?")){S.port=S.port.filter(p=>p.id!==id);savePort();current.update&&current.update();toast("Position gelöscht");}return;}
+  if(act==="delpos"){if(confirm("Diese Position löschen?")){S.port=S.port.filter(p=>p.id!==id);savePort();current.update&&current.update();current.refreshHist&&current.refreshHist();toast("Position gelöscht");}return;}
+  if(act==="addalert"){openAlertModal({key});return;}
+  if(act==="delalert"){S.alerts=S.alerts.filter(a=>a.id!==id);saveAlerts();current.update&&current.update();return;}
+  if(act==="rearm"){const a=S.alerts.find(a=>a.id===id);if(a){a.triggered=0;delete a.hit;saveAlerts();current.update&&current.update();toast("Alarm ist wieder aktiv");}return;}
+  if(act==="cmpadd"){
+    if(key&&!S.cmp.keys.includes(key)){if(S.cmp.keys.length>=5){toast("Maximal 5 Instrumente im Vergleich.");return;}S.cmp.keys.push(key);if(!current.cmpChanged)toast("Zum Vergleich hinzugefügt");}
+    if(current.cmpChanged)current.cmpChanged();else location.hash="#/compare";
+    return;
+  }
+  if(act==="cmpdel"){S.cmp.keys=S.cmp.keys.filter(k=>k!==key);current.cmpChanged&&current.cmpChanged();return;}
+  if(act==="notif"){
+    if(!("Notification" in window)){toast("Dein Browser unterstützt keine Benachrichtigungen.");return;}
+    try{const r=await Notification.requestPermission();toast(r==="granted"?"Benachrichtigungen aktiviert.":"Benachrichtigungen nicht erlaubt.");}catch(err){toast("Benachrichtigungen konnten nicht aktiviert werden.");}
+    return;
+  }
+  if(act==="exportcsv"){
+    const f=s=>{s=String(s==null?"":s);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
+    const dec=n=>String(n).replace(".",",");
+    const rows=[["Symbol","Name","Börse","Menge","Kaufkurs","Währung","Kaufdatum"].map(f).join(";")];
+    S.port.forEach(p=>{const x=inst(p.key);rows.push([x.ticker,x.name,x.exchange,dec(p.qty),dec(p.price),p.cur,p.date].map(f).join(";"));});
+    saveBlob(new Blob(["﻿"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"}),"stockflow-portfolio.csv");
+    return;
+  }
   if(act==="closeModal"){closeModal();return;}
-  if(act==="pickinst"){S.modal.x=inst(key);$("modal").innerHTML=posModalHTML();setTimeout(()=>$("pmQty")?.focus(),30);return;}
+  if(act==="pickinst"){S.modal.x=inst(key);$("modal").innerHTML=modalHTML();setTimeout(()=>{const f=$("pmQty")||$("alPrice");if(f)f.focus();},30);return;}
   if(act==="savekey"){S.settings.apiKey=($("apiKey").value||"").trim();saveSettings();updateStatus();keyMsg(S.settings.apiKey?"Schlüssel gespeichert. Teste die Verbindung, um sicherzugehen.":"Schlüssel entfernt.");return;}
   if(act==="clearkey"){S.settings.apiKey="";saveSettings();updateStatus();$("apiKey").value="";keyMsg("Schlüssel entfernt.");return;}
   if(act==="testkey"){
@@ -683,12 +915,12 @@ document.addEventListener("click",async e=>{
     b.disabled=false;return;
   }
   if(act==="export"){
-    const blob=new Blob([JSON.stringify({app:"stockflow",v:5,watch:[...S.watch],portfolio:S.port},null,2)],{type:"application/json"});
+    const blob=new Blob([JSON.stringify({app:"stockflow",v:6,watch:[...S.watch],portfolio:S.port,alerts:S.alerts},null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="stockflow-backup.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return;
   }
-  if(act==="reset"){if(confirm("Watchlist, Portfolio und gespeicherte Kurse wirklich löschen? Der API-Schlüssel bleibt erhalten.")){S.watch=new Set();S.port=[];S.quotes={};S.errors={};saveWatch();savePort();saveQuotes();toast("Alle Daten gelöscht");pageSettings();}return;}
+  if(act==="reset"){if(confirm("Watchlist, Portfolio und gespeicherte Kurse wirklich löschen? Der API-Schlüssel bleibt erhalten.")){S.watch=new Set();S.port=[];S.alerts=[];S.quotes={};S.errors={};saveWatch();savePort();saveAlerts();saveQuotes();toast("Alle Daten gelöscht");pageSettings();}return;}
 });
-document.addEventListener("input",e=>{if(e.target.id==="pmSearch")fillPick();});
+document.addEventListener("input",e=>{if(e.target.id==="pmSearch")fillPick();else if(e.target.id==="cmpSearch")fillCmpPick();});
 document.addEventListener("change",e=>{
   if(e.target.id!=="impFile")return;
   const f=e.target.files[0];if(!f)return;
@@ -698,11 +930,13 @@ document.addEventListener("change",e=>{
     if(!d||typeof d!=="object")throw Error("x");
     const w=Array.isArray(d.watch)?d.watch.map(String):[];
     const p=(Array.isArray(d.portfolio)?d.portfolio:[]).filter(p=>p&&typeof p.key==="string"&&Number(p.qty)>0&&isFinite(Number(p.price))).map(p=>({id:uid(),key:p.key,qty:Number(p.qty),price:Number(p.price),cur:String(p.cur||"").slice(0,4),date:String(p.date||"")}));
-    w.forEach(k=>S.watch.add(k));S.port=S.port.concat(p);saveWatch();savePort();toast("Import: "+w.length+" Watchlist-Einträge, "+p.length+" Positionen");pageSettings();
+    const al=(Array.isArray(d.alerts)?d.alerts:[]).filter(a=>a&&typeof a.key==="string"&&(a.dir==="above"||a.dir==="below")&&Number(a.price)>0).map(a=>({id:uid(),key:a.key,dir:a.dir,price:Number(a.price),cur:String(a.cur||"").slice(0,4),triggered:0}));
+    w.forEach(k=>S.watch.add(k));S.port=S.port.concat(p);S.alerts=S.alerts.concat(al);saveWatch();savePort();saveAlerts();toast("Import: "+w.length+" Watchlist-Einträge, "+p.length+" Positionen, "+al.length+" Alarme");pageSettings();
   }catch(err){toast("Datei konnte nicht gelesen werden.");}};
   r.readAsText(f);e.target.value="";
 });
 document.addEventListener("submit",e=>{
+  if(e.target.id==="alForm"){e.preventDefault();submitAlert();return;}
   if(e.target.id!=="pmForm")return;e.preventDefault();
   const M=S.modal;if(!M||!M.x)return;
   const qty=parseFloat($("pmQty").value),price=parseFloat($("pmPrice").value);
@@ -713,10 +947,19 @@ document.addEventListener("submit",e=>{
   savePort();
   const x=M.x;closeModal();toast("Position gespeichert");
   if(current.update)current.update();
+  if(current.refreshHist)current.refreshHist();
   if(S.settings.apiKey&&!fresh(keyOf(x),300000))loadQuotes([x],{force:true});
 });
 $("modalBg").addEventListener("click",e=>{if(e.target===$("modalBg"))closeModal();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+/* Aktive Alarme alle 5 Minuten prüfen, solange der Tab sichtbar ist (max. 6 Abrufe pro Zyklus) */
+setInterval(()=>{
+  if(document.hidden||S.loading||!S.settings.apiKey)return;
+  const seen=new Set(),list=[];
+  S.alerts.filter(a=>!a.triggered).forEach(a=>{if(!seen.has(a.key)){seen.add(a.key);list.push(inst(a.key));}});
+  if(list.length)loadQuotes(list,{force:true,max:6});
+},300000);
 
 loadDatabase();
 </script>
