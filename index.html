@@ -163,6 +163,8 @@ a.pick{text-decoration:none;color:var(--text)}
 .kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:11px;color:var(--muted)}
 .checkline{display:flex;gap:9px;align-items:center;color:var(--text);font-size:13px}
 @media(max-width:650px){.topbar{flex-wrap:wrap}.top-r{width:100%}.top-r .status{max-width:none;flex:1;text-align:center}.kbd{display:none}}
+@media print{:root,:root[data-theme="dark"],:root[data-theme="light"]{--bg:#fff;--panel:#fff;--panel2:#f3f4f6;--line:#d5d9e0;--muted:#555;--text:#000;--th:#f3f4f6;--hover:#fff;--tagbg:#eee;--tagtxt:#222;--act:#f3f4f6;--rowline:#e5e7eb;--rowline2:#e5e7eb;--skel1:#eee;--skel2:#fff;--foot:#666}
+.sidebar,.toasts,.top-r,.footer,.modal-bg,.back,.btn-row,.panel-head .action,.panel-head button,.ranges,.tabs{display:none!important}.app{display:block}.panel,.stat{break-inside:avoid}}
 
 @media(max-width:900px){
   .app{grid-template-columns:190px minmax(0,1fr)}
@@ -207,7 +209,7 @@ a.pick{text-decoration:none;color:var(--text)}
     <a href="#/compare" data-page="compare"><span class="ico">⇄</span><span>Vergleich</span></a>
     <a href="#/settings" data-page="settings"><span class="ico">⚙</span><span>Optionen</span></a>
   </nav>
-  <div class="side-note">StockFlow 7.0<br><b>Global Market Explorer</b><br><br>Keine Anlageberatung.</div>
+  <div class="side-note">StockFlow 8.0<br><b>Global Market Explorer</b><br><br>Keine Anlageberatung.</div>
 </aside>
 <main class="main">
   <header class="topbar">
@@ -215,7 +217,7 @@ a.pick{text-decoration:none;color:var(--text)}
     <div class="top-r"><button class="action" data-act="gsearch" aria-label="Schnellsuche (Taste /)">⌕ Suche <span class="kbd">/</span></button><button class="action" data-act="theme" aria-label="Design wechseln" title="Hell / Dunkel">🌓</button><div class="status" id="dataStatus">Datenbank wird geladen …</div></div>
   </header>
   <div id="appView"></div>
-  <div class="footer">StockFlow ist ein Lern- und Informationsprojekt und keine Anlageberatung. Stammdaten stammen aus der Adanos Free Global Ticker Database (MIT-Lizenz). Kurse werden nur angezeigt, wenn du in den Einstellungen einen API-Schlüssel hinterlegst; sie können verzögert sein und je nach Tarif fehlen. Prüfe alle Daten vor jeder Verwendung. Portfolio und Watchlist werden ausschließlich in deinem Browser gespeichert.</div>
+  <div class="footer">StockFlow ist ein Lern- und Informationsprojekt und keine Anlageberatung. Stammdaten stammen aus der Adanos Free Global Ticker Database (MIT-Lizenz). Kurse werden nur angezeigt, wenn du in den Einstellungen einen API-Schlüssel hinterlegst; sie können verzögert sein und je nach Tarif fehlen. Prüfe alle Daten vor jeder Verwendung. Portfolio und Watchlist werden ausschließlich in deinem Browser gespeichert. <a href="#/about" style="text-decoration:underline">Info, Datenschutz &amp; Impressum</a></div>
 </main>
 </div>
 <div class="modal-bg" id="modalBg"><section class="modal" id="modal"></section></div>
@@ -226,7 +228,7 @@ a.pick{text-decoration:none;color:var(--text)}
 
 /* ---------- Konfiguration ---------- */
 const DATA_URL="https://raw.githubusercontent.com/adanos-software/free-ticker-database/main/data/tickers.csv";
-const LS={watch:"stockflow_v4_watchlist",port:"stockflow_v5_portfolio",set:"stockflow_v5_settings",quotes:"stockflow_v5_quotes",alerts:"stockflow_v6_alerts",recent:"stockflow_v7_recent",notes:"stockflow_v7_notes"};
+const LS={watch:"stockflow_v4_watchlist",port:"stockflow_v5_portfolio",set:"stockflow_v5_settings",quotes:"stockflow_v5_quotes",alerts:"stockflow_v6_alerts",recent:"stockflow_v7_recent",notes:"stockflow_v7_notes",fx:"stockflow_v8_fx"};
 const API_BASE="https://api.twelvedata.com/";
 const API_LIMIT=7;            // Free-Tarif: 8 Credits/Minute, ein Credit Reserve
 const MIC={"NASDAQ":"XNAS","NYSE":"XNYS","NYSE Arca":"ARCX","NYSE American":"XASE","XETRA":"XETR","LSE":"XLON","TSE":"XTKS","SIX":"XSWX","EURONEXT":"XPAR","Euronext Amsterdam":"XAMS"};
@@ -243,7 +245,7 @@ const POPULAR=["AAPL","MSFT","NVDA","AMZN","GOOGL","SAP","VWCE","IWDA"];
 const PAL=["#ff7900","#24c78a","#4c8dff","#c26bff","#ffd23f","#ff5d65","#35d0e0","#8c929e"];
 
 /* ---------- State & Helfer ---------- */
-const S={all:[],stocks:[],etfs:[],byKey:new Map(),extra:new Map(),watch:new Set(),port:[],settings:{apiKey:"",theme:"dark",range:"3M",auto:true},quotes:{},errors:{},alerts:[],cmp:{keys:[],range:"6M"},recent:[],notes:{},disc:null,wlSort:"name",
+const S={all:[],stocks:[],etfs:[],byKey:new Map(),extra:new Map(),watch:new Set(),port:[],settings:{apiKey:"",theme:"dark",range:"3M",auto:true,base:"EUR"},quotes:{},errors:{},alerts:[],cmp:{keys:[],range:"6M"},recent:[],notes:{},disc:null,wlSort:"name",fx:{},welcomeHidden:false,
   loading:true,offline:false,queueWait:0,modal:null,
   ex:{tab:"all",q:"",country:"",sector:"",sort:"name",limit:100}};
 let current={name:"",update:null,redraw:null};
@@ -274,13 +276,15 @@ function fmtDT(ms){return new Date(ms).toLocaleString("de-DE",{day:"2-digit",mon
 function saveBlob(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 function loadState(){
   try{S.watch=new Set((lsGet(LS.watch,[])||[]).map(String));}catch(e){S.watch=new Set();}
-  const p=lsGet(LS.port,[]);S.port=Array.isArray(p)?p.filter(x=>x&&x.key&&x.qty>0):[];
+  const p=lsGet(LS.port,[]);S.port=Array.isArray(p)?p.filter(x=>x&&x.key&&x.qty>0).map(x=>({...x,side:x.side==="sell"?"sell":"buy"})):[];
   const st0=lsGet(LS.set,{});const st=st0&&typeof st0==="object"?st0:{};
-  S.settings={apiKey:String(st.apiKey||""),theme:["dark","light","auto"].includes(st.theme)?st.theme:"dark",range:RANGES[st.range]?st.range:"3M",auto:st.auto!==false};
+  S.settings={apiKey:String(st.apiKey||""),theme:["dark","light","auto"].includes(st.theme)?st.theme:"dark",range:RANGES[st.range]?st.range:"3M",auto:st.auto!==false,base:["","EUR","USD","CHF","GBP"].includes(st.base)?st.base:(st.base===undefined?"EUR":"")};
   const q=lsGet(LS.quotes,{});S.quotes=q&&typeof q==="object"?q:{};
   const al=lsGet(LS.alerts,[]);S.alerts=Array.isArray(al)?al.filter(a=>a&&a.key&&isFinite(a.price)&&(a.dir==="above"||a.dir==="below")):[];
   const rc=lsGet(LS.recent,[]);S.recent=Array.isArray(rc)?rc.filter(k=>typeof k==="string").slice(0,8):[];
   const nt=lsGet(LS.notes,{});S.notes=nt&&typeof nt==="object"&&!Array.isArray(nt)?nt:{};
+  const fx=lsGet(LS.fx,{});S.fx=fx&&typeof fx==="object"&&!Array.isArray(fx)?fx:{};
+  S.welcomeHidden=!!lsGet("stockflow_v8_welcome",false);
   applyTheme();
 }
 const saveWatch=()=>lsSet(LS.watch,[...S.watch]);
@@ -289,6 +293,7 @@ const saveSettings=()=>lsSet(LS.set,S.settings);
 const saveAlerts=()=>lsSet(LS.alerts,S.alerts);
 const saveRecent=()=>lsSet(LS.recent,S.recent);
 const saveNotes=()=>lsSet(LS.notes,S.notes);
+const saveFx=()=>lsSet(LS.fx,S.fx);
 function applyTheme(){
   const t=S.settings.theme;
   let dark=t!=="light";
@@ -426,13 +431,14 @@ function route(){
   const h=(location.hash||"#/dashboard").slice(2);
   let page="dashboard",arg="";
   if(h.startsWith("i/")){page="detail";arg=decodeURIComponent(h.slice(2));}
-  else if(["dashboard","explore","watchlist","portfolio","compare","settings"].includes(h.split("?")[0]))page=h.split("?")[0];
+  else if(["dashboard","explore","watchlist","portfolio","compare","settings","about"].includes(h.split("?")[0]))page=h.split("?")[0];
   const nav=page==="detail"?"explore":page;
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.page===nav));
-  const titles={dashboard:"Dashboard",explore:"Entdecken",watchlist:"Watchlist",portfolio:"Portfolio",compare:"Vergleich",settings:"Einstellungen",detail:"Instrument"};
+  const titles={dashboard:"Dashboard",explore:"Entdecken",watchlist:"Watchlist",portfolio:"Portfolio",compare:"Vergleich",settings:"Einstellungen",about:"Info & Rechtliches",detail:"Instrument"};
   $("pageTitle").textContent=titles[page];
   window.scrollTo(0,0);
-  ({dashboard:pageDashboard,explore:pageExplore,watchlist:pageWatchlist,portfolio:pagePortfolio,compare:pageCompare,settings:pageSettings,detail:()=>pageDetail(arg)})[page]();
+  try{({dashboard:pageDashboard,explore:pageExplore,watchlist:pageWatchlist,portfolio:pagePortfolio,compare:pageCompare,settings:pageSettings,about:pageAbout,detail:()=>pageDetail(arg)})[page]();}
+  catch(err){console.error(err);mount(`<div class="notice err"><b>Hier ist etwas schiefgelaufen.</b><br>${esc(err&&err.message||err)}<br><a href="#/dashboard" style="color:var(--text);text-decoration:underline">Zurück zum Dashboard</a></div>`);}
 }
 window.addEventListener("hashchange",route);
 
@@ -451,7 +457,7 @@ function keyNotice(){return S.settings.apiKey?"":`<div class="notice">Kursdaten 
 
 /* ---------- Dashboard ---------- */
 function pageDashboard(){
-  const pg=mount(`<div id="dAlertNote"></div><div class="grid stats" id="dStats"></div>
+  const pg=mount(`<div id="dWelcome"></div><div id="dAlertNote"></div><div class="grid stats" id="dStats"></div>
   <div class="grid dashboard-grid">
     <div>
       <section class="panel"><div class="panel-head"><h2>Markt-Snapshot</h2><button class="action" data-act="refreshsnap">Aktualisieren</button></div><div id="dSnap"></div><div class="mini" style="margin-top:10px">Angezeigt werden ETFs, die die Indizes abbilden – keine Indexstände.</div></section>
@@ -467,13 +473,15 @@ function pageDashboard(){
   const watchList=()=>[...S.watch].map(inst).filter(Boolean);
   pg.update=()=>{
     if(!$("dStats"))return;
+    $("dWelcome").innerHTML=(!S.settings.apiKey&&!S.welcomeHidden&&!S.watch.size&&!S.port.length)?welcomeHTML():"";
     const hit=S.alerts.filter(a=>a.triggered).length;
     $("dAlertNote").innerHTML=hit?`<div class="notice"><b>${hit} Kursalarm${hit>1?"e":""} ausgelöst.</b> <a href="#/watchlist" style="color:var(--text);text-decoration:underline">Details ansehen</a></div>`:"";
     const sum=portfolioSummary();
-    const pv=sum.length?sum.map(s=>s.nq?money(s.val,s.cur):money(s.cost,s.cur)).join(" · "):"—";
-    const pvSmall=sum.length?(sum.every(s=>s.nq===s.n)?"aktueller Wert":"teils Einstandswert"):"noch keine Positionen";
+    const bt=baseTotals();
+    const pv=bt?money(bt.val,bt.cur):(sum.length?sum.map(s=>s.nq?money(s.val,s.cur):money(s.cost,s.cur)).join(" · "):"—");
+    const pvSmall=bt?("umgerechnet in "+bt.cur+(bt.missing.length?" (unvollständig)":"")):(sum.length?(sum.every(s=>s.nq===s.n)?"aktueller Wert":"teils Einstandswert"):"noch keine Positionen");
     $("dStats").innerHTML=`<div class="stat"><div class="label">Watchlist</div><strong>${S.watch.size}</strong><small>gespeicherte Instrumente</small></div>
-      <div class="stat"><div class="label">Portfolio-Positionen</div><strong>${S.port.length}</strong><small>${S.port.length?"in "+new Set(S.port.map(p=>p.key)).size+" Instrumenten":"noch leer"}</small></div>
+      <div class="stat"><div class="label">Portfolio-Positionen</div><strong>${new Set(openHoldings().map(h=>h.key)).size}</strong><small>${S.port.length?S.port.length+" Transaktionen":"noch leer"}</small></div>
       <div class="stat"><div class="label">Portfolio-Wert</div><strong>${pv}</strong><small>${pvSmall}</small></div>
       <div class="stat"><div class="label">Instrumente</div><strong>${fmtInt(S.all.length)}</strong><small>${unique(S.all.map(x=>x.country)).length} Länder</small></div>`;
     $("dSnap").innerHTML=!S.settings.apiKey?keyNotice():SNAP.map(s=>{const k=s.ticker+"|"+s.exchange,e=S.quotes[k],q=e&&e.q,err=S.errors[k];
@@ -490,6 +498,7 @@ function pageDashboard(){
   };
   pg.update();
   loadQuotes([...SNAP.map(s=>inst(s.ticker+"|"+s.exchange)),...watchList().slice(0,5),...S.port.map(p=>inst(p.key))]);
+  loadFx().then(()=>{if(pg===current)pg.update();});
 }
 
 /* ---------- Entdecken ---------- */
@@ -579,31 +588,60 @@ function posCalc(p){
 }
 function portfolioSummary(){
   const m={};
-  S.port.forEach(p=>{const c=posCalc(p),cur=normCur(p.cur)||"?";const g=m[cur]||(m[cur]={cur,cost:0,val:0,costQ:0,n:0,nq:0,day:0,dayN:0});g.cost+=c.cost;g.n++;if(c.val!=null){g.val+=c.val;g.costQ+=c.cost;g.nq++;if(c.day!=null){g.day+=c.day;g.dayN++;}}});
+  openHoldings().forEach(p=>{const c=posCalc(p),cur=normCur(p.cur)||"?";const g=m[cur]||(m[cur]={cur,cost:0,val:0,costQ:0,n:0,nq:0,day:0,dayN:0});g.cost+=c.cost;g.n++;if(c.val!=null){g.val+=c.val;g.costQ+=c.cost;g.nq++;if(c.day!=null){g.day+=c.day;g.dayN++;}}});
   return Object.values(m).sort((a,b)=>b.cost-a.cost);
 }
 function allocationHTML(by){
   by=by||"pos";
-  const sum=portfolioSummary();if(!sum.length)return"";
-  const cur=sum[0].cur,agg={};
-  S.port.filter(p=>(normCur(p.cur)||"?")===cur).forEach(p=>{const c=posCalc(p);const xi=inst(p.key),g=by==="country"?(xi.country||"Unbekannt"):by==="sector"?(xi.stock_sector||xi.etf_category||"Unbekannt"):p.key;agg[g]=(agg[g]||0)+(c.val!=null?c.val:c.cost);});
+  const hs=openHoldings();if(!hs.length)return"";
+  const base=S.settings.base||"";
+  let cur,conv=false;
+  if(base&&hs.every(h=>fxRate(h.cur,base)!=null)){cur=base;conv=hs.some(h=>normCur(h.cur)!==normCur(base));}
+  else{const sum=portfolioSummary();cur=sum[0].cur;}
+  const agg={};
+  hs.forEach(h=>{
+    const r=fxRate(h.cur,cur);if(r==null)return;
+    const c=posCalc(h),xi=inst(h.key);
+    const g=by==="country"?(xi.country||"Unbekannt"):by==="sector"?(xi.stock_sector||xi.etf_category||"Unbekannt"):h.key;
+    agg[g]=(agg[g]||0)+(c.val!=null?c.val:c.cost)*r;
+  });
   let items=Object.entries(agg).map(([k,v])=>({label:by==="pos"?(inst(k)?.ticker||k):k,value:v})).filter(i=>i.value>0).sort((a,b)=>b.value-a.value);
   if(items.length>7){const rest=items.slice(7).reduce((a,b)=>a+b.value,0);items=items.slice(0,7).concat([{label:"Sonstige",value:rest}]);}
   const total=items.reduce((a,b)=>a+b.value,0);if(!total)return"";
   const R=60,C=2*Math.PI*R;let off=0;
   const segs=items.map((it,i)=>{const len=it.value/total*C;const s=`<circle r="${R}" cx="80" cy="80" fill="none" stroke="${PAL[i%PAL.length]}" stroke-width="22" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 80 80)"/>`;off+=len;return s;}).join("");
-  return `<div class="donut-wrap"><svg viewBox="0 0 160 160" role="img" aria-label="Verteilung">${segs}</svg><div class="legend">${items.map((it,i)=>`<div><span class="dot" style="background:${PAL[i%PAL.length]}"></span><span style="flex:1">${esc(it.label)}</span><b>${nf(it.value/total*100,1)} %</b></div>`).join("")}<div class="mini">Währung: ${esc(cur)} · nach Wert, sonst Einstand</div></div></div>`;
+  return `<div class="donut-wrap"><svg viewBox="0 0 160 160" role="img" aria-label="Verteilung">${segs}</svg><div class="legend">${items.map((it,i)=>`<div><span class="dot" style="background:${PAL[i%PAL.length]}"></span><span style="flex:1">${esc(it.label)}</span><b>${nf(it.value/total*100,1)} %</b></div>`).join("")}<div class="mini">Währung: ${esc(cur)}${conv?" (umgerechnet)":""} · nach Wert, sonst Einstand</div></div></div>`;
 }
 function pagePortfolio(){
-  const pg=mount(`${keyNotice()}<div id="pfSum"></div><section class="panel"><div class="panel-head"><h2>Positionen</h2><div><button class="action" data-act="refreshpf">Kurse aktualisieren</button> <button class="action primary" data-act="addpos">+ Position</button></div></div><div id="pfBody"></div></section><section class="panel"><div class="panel-head"><h2>Wertentwicklung</h2><div class="ranges" id="pfRanges">${["3M","6M","1J"].map(r=>`<button class="range ${r===PF.range?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div><div id="pfChartInfo" class="mini" style="margin-bottom:8px"></div><div class="chart-box" id="pfChart"></div><div class="legend-line"><span><span class="dot" style="background:#ff7900"></span>Wert</span><span><span class="dot" style="background:#8c929e"></span>Einstand</span></div><div class="mini" style="margin-top:8px">Berechnet aus den Tagesschlusskursen und deinen Kaufdaten. Käufe erhöhen Wert und Einstand ab dem Kaufdatum.</div></section><section class="panel"><div class="panel-head"><h2>Verteilung</h2><div class="tabs" id="pfAllocTabs" style="margin:0">${[["pos","Positionen"],["country","Länder"],["sector","Branchen"]].map(([v,l])=>`<button class="tab ${PF.alloc===v?"active":""}" data-act="alloc" data-v="${v}">${l}</button>`).join("")}</div></div><div id="pfAlloc"></div></section>`);
+  const pg=mount(`${keyNotice()}<div id="pfNote"></div><div id="pfSum"></div>
+  <section class="panel"><div class="panel-head"><h2>Positionen</h2><div><button class="action" data-act="refreshpf">Kurse aktualisieren</button> <button class="action primary" data-act="addpos">+ Transaktion</button></div></div><div id="pfBody"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Wertentwicklung</h2><div class="ranges" id="pfRanges">${["3M","6M","1J"].map(r=>`<button class="range ${r===PF.range?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div><div id="pfChartInfo" class="mini" style="margin-bottom:8px"></div><div class="chart-box" id="pfChart"></div><div class="legend-line"><span><span class="dot" style="background:#ff7900"></span>Wert</span><span><span class="dot" style="background:#8c929e"></span>Einstand (Restbestand)</span></div><div class="mini" style="margin-top:8px">Berechnet aus Tagesschlusskursen und deinen Transaktionen. Käufe und Verkäufe wirken ab ihrem Datum.</div></section>
+  <section class="panel"><div class="panel-head"><h2>Verteilung</h2><div class="tabs" id="pfAllocTabs" style="margin:0">${[["pos","Positionen"],["country","Länder"],["sector","Branchen"]].map(([v,l])=>`<button class="tab ${PF.alloc===v?"active":""}" data-act="alloc" data-v="${v}">${l}</button>`).join("")}</div></div><div id="pfAlloc"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Transaktionen</h2><span class="mini" id="txCount"></span></div><div id="txBody"></div></section>`);
   pg.update=()=>{
     if(!$("pfBody"))return;
-    const sum=portfolioSummary();
-    $("pfSum").innerHTML=sum.length?`<div class="grid stats" style="grid-template-columns:repeat(${Math.min(sum.length,4)},minmax(0,1fr))">${sum.map(s=>{const pl=s.nq?s.val-s.costQ:null,pp=s.nq&&s.costQ>0?pl/s.costQ*100:null;return `<div class="stat"><div class="label">Portfolio (${esc(s.cur)})</div><strong>${s.nq?money(s.val+(s.cost-s.costQ),s.cur):money(s.cost,s.cur)}</strong><small>Einstand ${money(s.cost,s.cur)}</small><div class="${sgn(pl)}" style="margin-top:4px">${pl==null?'<span class="muted">Kein Kurs verfügbar</span>':money(pl,s.cur)+" ("+pct(pp)+")"}</div>${s.dayN?`<div class="mini" style="margin-top:2px">Heute: <span class="${sgn(s.day)}">${money(s.day,s.cur)}</span></div>`:""}${s.nq&&s.nq<s.n?`<small>G/V basiert auf ${s.nq} von ${s.n} Positionen</small>`:""}</div>`;}).join("")}</div>`:"";
-    const tots={};S.port.forEach(p=>{const c=posCalc(p),cu=normCur(p.cur)||"?";tots[cu]=(tots[cu]||0)+(c.val!=null?c.val:c.cost);});
-    const rows=S.port.map(p=>{const x=inst(p.key),c=posCalc(p),k=p.key,tot=tots[normCur(p.cur)||"?"],share=tot>0?nf((c.val!=null?c.val:c.cost)/tot*100,1)+" %":"—";
-      return `<tr><td>${instCell(x)}</td><td class="num">${nf(p.qty,4).replace(/,?0+$/,"")}</td><td class="num">${money(p.price,p.cur)}<div class="mini">${p.date?fmtDate(p.date):""}</div></td><td class="num">${c.q?money(c.q.price,c.q.currency):'<span class="muted">—</span>'}</td><td class="num">${c.val!=null?money(c.val,p.cur):c.mismatch?'<span class="mini" title="Währung der Position weicht vom Kurs ab">Währung ≠</span>':'<span class="muted">—</span>'}</td><td class="num ${sgn(c.pl)}">${c.pl!=null?money(c.pl,p.cur)+'<div class="mini">'+pct(c.pct)+'</div>':'<span class="muted">—</span>'}</td><td class="num">${share}</td><td class="num"><button class="action" data-act="editpos" data-id="${esc(p.id)}">✎</button> <button class="action danger" data-act="delpos" data-id="${esc(p.id)}" aria-label="Löschen">✕</button></td></tr>`;}).join("");
-    $("pfBody").innerHTML=S.port.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Instrument</th><th class="num">Menge</th><th class="num">Einstand</th><th class="num">Kurs</th><th class="num">Wert</th><th class="num">G/V</th><th class="num">Anteil</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">Noch keine Positionen erfasst.<br><button class="action primary" style="margin-top:12px" data-act="addpos">Erste Position hinzufügen</button></div>`;
+    const hs=openHoldings(),sum=portfolioSummary(),bt=baseTotals(),rz=realizedByCur();
+    const curs=new Set(hs.map(h=>h.cur));
+    $("pfNote").innerHTML=(curs.size>1&&!S.settings.base)
+      ?`<div class="notice">Du hältst Positionen in mehreren Währungen. <a href="#/settings" style="color:var(--text);text-decoration:underline">Lege unter „Optionen“ eine Basiswährung fest</a>, um einen Gesamtwert zu sehen.</div>`
+      :(bt&&bt.missing.length?`<div class="notice">Der Wechselkurs ${esc(bt.missing.join(", "))} → ${esc(bt.cur)} ist noch nicht verfügbar. Diese Positionen fehlen im Gesamtwert.</div>`:"");
+    const cards=[];
+    if(bt)cards.push(`<div class="stat"><div class="label">Gesamt (${esc(bt.cur)})</div><strong>${money(bt.val,bt.cur)}</strong><small>Einstand ${money(bt.cost,bt.cur)}</small><div class="${sgn(bt.pl)}" style="margin-top:4px">${bt.nq?money(bt.pl,bt.cur)+" ("+pct(bt.pct)+")":'<span class="muted">Kein Kurs verfügbar</span>'}</div>${bt.dayN?`<div class="mini" style="margin-top:2px">Heute: <span class="${sgn(bt.day)}">${money(bt.day,bt.cur)}</span></div>`:""}</div>`);
+    if(!bt||curs.size>1)sum.forEach(s=>{
+      const pl=s.nq?s.val-s.costQ:null,pp=s.nq&&s.costQ>0?pl/s.costQ*100:null;
+      cards.push(`<div class="stat"><div class="label">Portfolio (${esc(s.cur)})</div><strong>${s.nq?money(s.val+(s.cost-s.costQ),s.cur):money(s.cost,s.cur)}</strong><small>Einstand ${money(s.cost,s.cur)}</small><div class="${sgn(pl)}" style="margin-top:4px">${pl==null?'<span class="muted">Kein Kurs verfügbar</span>':money(pl,s.cur)+" ("+pct(pp)+")"}</div>${s.dayN?`<div class="mini" style="margin-top:2px">Heute: <span class="${sgn(s.day)}">${money(s.day,s.cur)}</span></div>`:""}${s.nq&&s.nq<s.n?`<small>G/V basiert auf ${s.nq} von ${s.n} Positionen</small>`:""}</div>`);
+    });
+    if(rz.length)cards.push(`<div class="stat"><div class="label">Realisierter Gewinn/Verlust</div><strong style="font-size:18px">${rz.map(r=>`<span class="${sgn(r.amount)}">${money(r.amount,r.cur)}</span>`).join(" · ")}</strong><small>aus Verkäufen (Durchschnittskosten)</small></div>`);
+    $("pfSum").innerHTML=cards.length?`<div class="grid stats" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">${cards.join("")}</div>`:"";
+    const tots={};hs.forEach(h=>{const c=posCalc(h);tots[h.cur]=(tots[h.cur]||0)+(c.val!=null?c.val:c.cost);});
+    const rows=hs.map(h=>{
+      const x=inst(h.key),c=posCalc(h),tot=tots[h.cur],share=tot>0?nf((c.val!=null?c.val:c.cost)/tot*100,1)+" %":"—";
+      return `<tr><td>${instCell(x)}</td><td class="num">${qtyFmt(h.qty)}</td><td class="num">${money(h.price,h.cur)}</td><td class="num">${c.q?money(c.q.price,c.q.currency):'<span class="muted">—</span>'}</td><td class="num">${c.val!=null?money(c.val,h.cur):c.mismatch?'<span class="mini" title="Währung der Position weicht vom Kurs ab">Währung ≠</span>':'<span class="muted">—</span>'}</td><td class="num ${sgn(c.pl)}">${c.pl!=null?money(c.pl,h.cur)+'<div class="mini">'+pct(c.pct)+'</div>':'<span class="muted">—</span>'}</td><td class="num">${share}</td><td class="num"><button class="action" data-act="sellpos" data-key="${esc(h.key)}" data-cur="${esc(h.cur)}">Verkaufen</button> <button class="action" data-act="addpos" data-key="${esc(h.key)}" data-cur="${esc(h.cur)}" aria-label="Nachkaufen">+</button></td></tr>`;
+    }).join("");
+    $("pfBody").innerHTML=hs.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Instrument</th><th class="num">Bestand</th><th class="num">Ø Einstand</th><th class="num">Kurs</th><th class="num">Wert</th><th class="num">G/V</th><th class="num">Anteil</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">${S.port.length?"Alle Positionen sind verkauft.":"Noch keine Positionen erfasst."}<br><button class="action primary" style="margin-top:12px" data-act="addpos">Erste Transaktion hinzufügen</button></div>`;
+    const tx=S.port.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    $("txCount").textContent=tx.length+" Einträge";
+    $("txBody").innerHTML=tx.length?`<div class="table-wrap"><table class="table" style="min-width:640px"><thead><tr><th>Datum</th><th>Typ</th><th>Instrument</th><th class="num">Menge</th><th class="num">Kurs</th><th class="num">Betrag</th><th></th></tr></thead><tbody>${tx.map(p=>{const x=inst(p.key);return `<tr><td>${p.date?fmtDate(p.date):"—"}</td><td><span class="badge ${p.side==="sell"?"hit":"on"}">${p.side==="sell"?"Verkauf":"Kauf"}</span></td><td>${instCell(x)}</td><td class="num">${qtyFmt(p.qty)}</td><td class="num">${money(p.price,p.cur)}</td><td class="num">${money(p.qty*p.price,p.cur)}</td><td class="num"><button class="action" data-act="editpos" data-id="${esc(p.id)}" aria-label="Bearbeiten">✎</button> <button class="action danger" data-act="delpos" data-id="${esc(p.id)}" aria-label="Löschen">✕</button></td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty">Noch keine Transaktionen.</div>`;
     $("pfAlloc").innerHTML=allocationHTML(PF.alloc)||`<div class="empty">Sobald du Positionen hast, siehst du hier die Verteilung.</div>`;
   };
   pg.update();loadQuotes(S.port.map(p=>inst(p.key)),{max:10});
@@ -613,45 +651,52 @@ function pagePortfolio(){
     if(hist.empty){box.innerHTML=`<div class="empty">${esc(hist.empty)}</div>`;$("pfChartInfo").innerHTML="";return;}
     drawLines(box,hist.dates,[{label:"Wert",color:"#ff7900",vals:hist.vals,w:2.4},{label:"Einstand",color:"#8c929e",vals:hist.costs,dash:"4 4",w:1.6}],{fmt:v=>money(v,hist.cur),axis:v=>compact(v)});
     const last=hist.dates.length-1;
-    $("pfChartInfo").innerHTML=`Währung ${esc(hist.cur)} · ${fmtDate(hist.dates[0])} – ${fmtDate(hist.dates[last])} · Wert zuletzt <b>${money(hist.vals[last],hist.cur)}</b>, Einstand ${money(hist.costs[last],hist.cur)}`+((hist.partial||(hist.skipped&&hist.skipped.length))?`<br><span style="color:var(--nt)">Nicht berücksichtigt: ${esc((hist.skipped||[]).join(", ")||"Positionen in anderen Währungen")}</span>`:"");
+    $("pfChartInfo").innerHTML=`Währung ${esc(hist.cur)}${hist.converted?" (umgerechnet mit aktuellem Wechselkurs)":""} · ${fmtDate(hist.dates[0])} – ${fmtDate(hist.dates[last])} · Wert zuletzt <b>${money(hist.vals[last],hist.cur)}</b>, Einstand ${money(hist.costs[last],hist.cur)}`+((hist.partial||(hist.skipped&&hist.skipped.length))?`<br><span style="color:var(--nt)">Nicht berücksichtigt: ${esc((hist.skipped||[]).join(", ")||"Positionen in anderen Währungen")}</span>`:"");
   }
   async function loadHist(){
     const box=$("pfChart");if(!box)return;
     if(!S.settings.apiKey){box.innerHTML='<div class="empty">Für den Verlauf wird ein API-Schlüssel benötigt.</div>';$("pfChartInfo").innerHTML="";return;}
-    if(!S.port.length){box.innerHTML='<div class="empty">Noch keine Positionen.</div>';$("pfChartInfo").innerHTML="";return;}
+    if(!S.port.length){box.innerHTML='<div class="empty">Noch keine Transaktionen.</div>';$("pfChartInfo").innerHTML="";return;}
     box.innerHTML='<div class="skeleton" style="height:250px"></div>';$("pfChartInfo").textContent="";
     const my=hr;hist=null;
     try{hist=await pfHistory(my);}catch(e){hist={empty:e.message};}
     if(pg!==current||my!==hr)return;
     drawHist();
   }
+  const start=()=>{
+    if(fxNeeded().length)loadFx().finally(()=>{if(pg===current){pg.update();loadHist();}});
+    else loadHist();
+  };
   pg.setRange=r=>{PF.range=hr=r;document.querySelectorAll("#pfRanges .range").forEach(b=>b.classList.toggle("active",b.dataset.v===r));loadHist();};
-  pg.redraw=drawHist;pg.refreshHist=loadHist;
-  loadHist();
+  pg.redraw=drawHist;pg.refreshHist=start;
+  start();
 }
 function curGuess(x){const q=S.quotes[keyOf(x)]?.q;return (q&&q.currency)||CUR_GUESS[x.exchange]||"";}
 function openModal(html){$("modal").innerHTML=html;$("modalBg").style.display="flex";}
 function closeModal(){$("modalBg").style.display="none";S.modal=null;}
 function posModalHTML(){
   const M=S.modal,x=M.x,edit=M.edit;
-  const head=`<div class="modal-top"><div><div class="eyebrow">POSITION</div><h2>${x?esc(x.name):"Instrument wählen"}</h2>${x?`<div class="muted">${esc(x.ticker)} · ${esc(x.exchange)}</div>`:""}</div><button class="action" data-act="closeModal" aria-label="Schließen">✕</button></div>`;
-  if(!x)return head+`<input class="field" id="pmSearch" placeholder="Symbol, Name oder ISIN …" style="width:100%;margin:14px 0" autocomplete="off"><div id="pmResults" class="pick-list"><div class="empty">Tippe, um zu suchen.</div></div>`;
-  const q=S.quotes[keyOf(x)]?.q;
-  const cur=edit?edit.cur:curGuess(x),price=edit?edit.price:(q&&q.price!=null?q.price:"");
+  const head=`<div class="modal-top"><div><div class="eyebrow">TRANSAKTION</div><h2>${x?esc(x.name):"Instrument wählen"}</h2>${x?`<div class="muted">${esc(x.ticker)} · ${esc(x.exchange)}</div>`:""}</div><button class="action" data-act="closeModal" aria-label="Schließen">✕</button></div>`;
+  if(!x)return head+pickBlock();
+  const q=S.quotes[keyOf(x)]&&S.quotes[keyOf(x)].q;
+  const side=edit?edit.side:(M.side==="sell"?"sell":"buy");
+  const cur=edit?edit.cur:(M.cur||curGuess(x)),price=edit?edit.price:(q&&q.price!=null?q.price:"");
+  const held=allHoldings().filter(h=>h.key===keyOf(x)&&h.qty>0).map(h=>qtyFmt(h.qty)+" Stück ("+h.cur+")").join(", ");
   return head+`<form id="pmForm" class="form-grid">
+    <label>Typ<select class="field" id="pmSide"><option value="buy" ${side==="buy"?"selected":""}>Kauf</option><option value="sell" ${side==="sell"?"selected":""}>Verkauf</option></select></label>
+    <label>Datum<input class="field" id="pmDate" type="date" value="${esc(edit?edit.date:new Date().toISOString().slice(0,10))}"></label>
     <label>Menge<input class="field" id="pmQty" type="number" step="any" min="0" required value="${edit?edit.qty:""}"></label>
-    <label>Kaufkurs pro Stück<input class="field" id="pmPrice" type="number" step="any" min="0" required value="${price}"></label>
-    <label>Währung des Kaufkurses<input class="field" id="pmCur" maxlength="4" required value="${esc(cur)}" placeholder="z. B. EUR"></label>
-    <label>Kaufdatum<input class="field" id="pmDate" type="date" value="${esc(edit?edit.date:new Date().toISOString().slice(0,10))}"></label>
-    <div class="full mini">Die Währung muss zur Kursquelle passen, sonst wird kein Gewinn/Verlust berechnet.</div>
-    <div class="full"><button class="action primary" type="submit">${edit?"Änderungen speichern":"Position speichern"}</button></div></form>`;
+    <label>Kurs pro Stück<input class="field" id="pmPrice" type="number" step="any" min="0" required value="${price}"></label>
+    <label>Währung<input class="field" id="pmCur" maxlength="4" required value="${esc(cur)}" placeholder="z. B. EUR"></label>
+    <div class="full mini">${held?"Aktueller Bestand: "+esc(held)+". ":"Kein Bestand. "}Bei Verkäufen wird der Gewinn mit dem Durchschnittseinstand berechnet. Die Währung muss zur Kursquelle passen, sonst wird kein Gewinn/Verlust berechnet.</div>
+    <div class="full"><button class="action primary" type="submit">${edit?"Änderungen speichern":"Transaktion speichern"}</button></div></form>`;
 }
 function openPosModal(o={}){
   const edit=o.id?S.port.find(p=>p.id===o.id):null;
   const key=edit?edit.key:o.key;
-  S.modal={x:key?inst(key):null,edit};
+  S.modal={x:key?inst(key):null,edit,side:o.side,cur:o.cur};
   openModal(posModalHTML());
-  setTimeout(()=>($("pmSearch")||$("pmQty"))?.focus(),30);
+  setTimeout(()=>{const f=$("pmSearch")||$("pmQty");if(f)f.focus();},30);
 }
 function fillPick(){
   const v=$("pmSearch").value.trim().toLowerCase();if(!v){$("pmResults").innerHTML='<div class="empty">Tippe, um zu suchen.</div>';return;}
@@ -669,7 +714,7 @@ function pageDetail(key){
   <section class="panel"><div class="hero" id="dHead"></div></section>
   <section class="panel"><div class="panel-head"><h2>Kursverlauf</h2><div class="ranges" id="ranges">${Object.keys(RANGES).map(r=>`<button class="range ${r===rng?"active":""}" data-act="range" data-v="${r}">${r}</button>`).join("")}</div></div><div id="chartInfo" class="mini" style="margin-bottom:8px"></div><div class="chart-box" id="chartBox"></div></section>
   <section class="panel"><div class="panel-head"><h2>Kennzahlen</h2></div><div class="metrics" id="dMetrics"></div><div id="dBars"></div></section>
-  <section class="panel"><div class="panel-head"><h2>Deine Positionen</h2><button class="action" data-act="addpos" data-key="${esc(key)}">+ Position</button></div><div id="dPos"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Deine Positionen</h2><div><button class="action" data-act="addpos" data-key="${esc(key)}">+ Kauf</button> <button class="action" data-act="sellpos" data-key="${esc(key)}">− Verkauf</button></div></div><div id="dPos"></div></section>
   <section class="panel"><div class="panel-head"><h2>Kursalarme</h2><button class="action" data-act="addalert" data-key="${esc(key)}">+ Alarm</button></div><div id="dAlerts"></div></section>
   <section class="panel"><div class="panel-head"><h2>Notizen</h2><span class="mini" id="noteState">Nur in diesem Browser gespeichert</span></div><textarea class="field" id="noteArea" data-key="${esc(key)}" maxlength="2000" placeholder="Eigene Notizen zu diesem Instrument …">${esc(S.notes[key]||"")}</textarea></section>
   <section class="panel" id="simBox" style="display:none"><div class="panel-head"><h2>Ähnliche Instrumente</h2><span class="mini">gleiche Branche / Kategorie</span></div><div id="dSimilar"></div></section>`);
@@ -687,8 +732,8 @@ function pageDetail(key){
     $("dMetrics").innerHTML=m.map(([l,v])=>`<div class="metric"><span>${l}</span><b>${esc(v)}</b></div>`).join("")+(q?"":`<div class="metric"><span>Kurs</span><b>Nicht verbunden</b></div>`);
     $("dAlerts").innerHTML=alertsHTML(key);
     $("dBars").innerHTML=q?rangeBar("Tagesspanne",q.low,q.high,q.price,q.currency)+rangeBar("52-Wochen-Spanne",q.lo52,q.hi52,q.price,q.currency):"";
-    const ps=S.port.filter(p=>p.key===key);
-    $("dPos").innerHTML=ps.length?`<div class="table-wrap"><table class="table" style="min-width:520px"><thead><tr><th class="num">Menge</th><th class="num">Einstand</th><th class="num">Wert</th><th class="num">G/V</th></tr></thead><tbody>${ps.map(p=>{const c=posCalc(p);return `<tr><td class="num">${nf(p.qty,4).replace(/,?0+$/,"")}</td><td class="num">${money(p.price,p.cur)}</td><td class="num">${c.val!=null?money(c.val,p.cur):"—"}</td><td class="num ${sgn(c.pl)}">${c.pl!=null?money(c.pl,p.cur)+" ("+pct(c.pct)+")":"—"}</td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty">Keine Position in diesem Instrument.</div>`;
+    const hsK=allHoldings().filter(h=>h.key===key);
+    $("dPos").innerHTML=hsK.length?`<div class="table-wrap"><table class="table" style="min-width:560px"><thead><tr><th class="num">Bestand</th><th class="num">Ø Einstand</th><th class="num">Wert</th><th class="num">G/V</th><th class="num">Realisiert</th></tr></thead><tbody>${hsK.map(h=>{const c=posCalc(h);return `<tr><td class="num">${qtyFmt(h.qty)}</td><td class="num">${h.qty>0?money(h.price,h.cur):"—"}</td><td class="num">${h.qty>0&&c.val!=null?money(c.val,h.cur):"—"}</td><td class="num ${sgn(c.pl)}">${h.qty>0&&c.pl!=null?money(c.pl,h.cur)+" ("+pct(c.pct)+")":"—"}</td><td class="num ${sgn(h.realized)}">${h.sold>0?money(h.realized,h.cur):"—"}</td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty">Keine Transaktionen für dieses Instrument.</div>`;
   }
   async function loadChart(){
     const box=$("chartBox");
@@ -766,6 +811,79 @@ function drawLines(box,dates,lines,o){
 }
 let rsTimer;window.addEventListener("resize",()=>{clearTimeout(rsTimer);rsTimer=setTimeout(()=>{if(current.redraw)current.redraw();},150);});
 
+/* ---------- Bestände, Währungen, Info ---------- */
+function replay(list){
+  const order=list.map((t,i)=>({t,i})).sort((a,b)=>(a.t.date||"").localeCompare(b.t.date||"")||((a.t.side==="sell")-(b.t.side==="sell"))||a.i-b.i);
+  const map={};let over=false;
+  order.forEach(({t})=>{
+    const cu=normCur(t.cur)||"?",k=t.key+"|"+cu;
+    const h=map[k]||(map[k]={key:t.key,cur:cu,qty:0,cost:0,realized:0,sold:0,tl:[]});
+    if(t.side==="sell"){
+      let q=t.qty;if(q>h.qty+1e-9){over=true;q=h.qty;}
+      if(q>0){const avg=h.cost/h.qty;h.realized+=(t.price-avg)*q;h.cost-=avg*q;h.qty-=q;h.sold+=q;if(h.qty<1e-9){h.qty=0;h.cost=0;}}
+    }else{h.qty+=t.qty;h.cost+=t.qty*t.price;}
+    h.tl.push({d:t.date||"",qty:h.qty,cost:h.cost});
+  });
+  const hs=Object.values(map);hs.forEach(h=>{h.price=h.qty>0?h.cost/h.qty:0;});
+  return{hs,over};
+}
+const allHoldings=()=>replay(S.port).hs;
+const openHoldings=()=>allHoldings().filter(h=>h.qty>0);
+const qtyFmt=q=>nf(q,4).replace(/,?0+$/,"");
+function realizedByCur(){const m={};allHoldings().forEach(h=>{if(h.sold>0)m[h.cur]=(m[h.cur]||0)+h.realized;});return Object.entries(m).filter(([c,a])=>Math.abs(a)>1e-9).map(([cur,amount])=>({cur,amount}));}
+function fxParts(from,to){let f=normCur(from),mult=1;if(f==="GBX"){f="GBP";mult=.01;}return{f,t:normCur(to),mult};}
+function fxRate(from,to){
+  if(!from||!to)return null;
+  if(normCur(from)===normCur(to))return 1;
+  const{f,t,mult}=fxParts(from,to);
+  if(t==="GBX"||f==="?"||t==="?")return null;
+  if(f===t)return mult;
+  const e=S.fx[f+">"+t];return e&&e.r>0?e.r*mult:null;
+}
+function fxNeeded(){
+  const base=S.settings.base;if(!base||!S.settings.apiKey)return[];
+  const out=new Set();
+  allHoldings().forEach(h=>{const{f,t}=fxParts(h.cur,base);if(f===t||f==="?")return;const e=S.fx[f+">"+t];if(!e||Date.now()-e.t>6*3600*1000)out.add(f+">"+t);});
+  return[...out];
+}
+async function loadFx(){
+  const need=fxNeeded();
+  await Promise.all(need.map(async k=>{
+    const[f,t]=k.split(">");
+    try{const j=await td("exchange_rate",{symbol:f+"/"+t});const r=Number(j.rate);if(r>0){S.fx[k]={t:Date.now(),r};saveFx();}}
+    catch(e){S.errors["fx:"+k]=e.message;}
+  }));
+}
+function baseTotals(){
+  const base=S.settings.base;if(!base)return null;
+  const sum=portfolioSummary();if(!sum.length)return null;
+  const o={cur:base,val:0,cost:0,valQ:0,costQ:0,day:0,dayN:0,nq:0,missing:[]};
+  sum.forEach(g=>{
+    const r=fxRate(g.cur,base);if(r==null){o.missing.push(g.cur);return;}
+    o.cost+=g.cost*r;o.val+=(g.val+(g.cost-g.costQ))*r;o.valQ+=g.val*r;o.costQ+=g.costQ*r;o.nq+=g.nq;
+    if(g.dayN){o.day+=g.day*r;o.dayN++;}
+  });
+  if(o.missing.length===sum.length)return null;
+  o.pl=o.valQ-o.costQ;o.pct=o.costQ>0?o.pl/o.costQ*100:null;
+  return o;
+}
+function welcomeHTML(){
+  return `<section class="panel" style="border-color:var(--accb)"><div class="panel-head"><h2>Willkommen bei StockFlow 👋</h2><button class="action" data-act="hidewelcome">Ausblenden</button></div><p class="muted" style="margin-top:0">In drei Schritten bist du startklar:</p><ol class="steps"><li><b>Entdecken:</b> Suche Aktien und ETFs und setze Favoriten auf deine Watchlist.</li><li><b>Kurse verbinden:</b> Hinterlege unter „Optionen“ einen kostenlosen Twelve-Data-Schlüssel für Kurse und Charts.</li><li><b>Portfolio anlegen:</b> Erfasse Käufe und Verkäufe und verfolge Wert, Gewinn und Verteilung.</li></ol><div class="btn-row"><a class="action primary" href="#/explore">Instrumente entdecken</a><a class="action" href="#/settings">Kurse verbinden</a></div></section>`;
+}
+function pageAbout(){
+  mount(`<section class="panel"><div class="panel-head"><h2>Über StockFlow</h2></div>
+    <p style="margin-top:0">StockFlow ist ein Lern- und Informationsprojekt zum Entdecken von Aktien und ETFs weltweit, mit Watchlist, Portfolio-Tracker, Kursalarmen und Vergleich. Es handelt sich <b>nicht</b> um eine Anlageberatung oder Aufforderung zum Kauf oder Verkauf von Wertpapieren.</p>
+    <p class="muted">Kurse und Kennzahlen können verzögert, unvollständig oder fehlerhaft sein. Prüfe alle Daten vor jeder Verwendung. Gewinne und Verluste werden vereinfacht nach der Durchschnittskostenmethode berechnet, ohne Gebühren, Steuern oder Dividenden.</p></section>
+  <section class="panel"><div class="panel-head"><h2>Datenquellen</h2></div>
+    <ul style="margin:0;padding-left:20px;line-height:1.8"><li>Stammdaten: <a href="https://github.com/adanos-software/free-ticker-database" target="_blank" rel="noopener" style="color:var(--orange)">Adanos Free Global Ticker Database</a> (MIT-Lizenz)</li><li>Kurse, Charts, Wechselkurse: <a href="https://twelvedata.com" target="_blank" rel="noopener" style="color:var(--orange)">Twelve Data</a> (nur mit deinem eigenen API-Schlüssel)</li></ul></section>
+  <section class="panel"><div class="panel-head"><h2>Datenschutz</h2></div>
+    <p style="margin-top:0">Watchlist, Portfolio, Transaktionen, Alarme, Notizen und Einstellungen werden ausschließlich im Speicher deines Browsers (localStorage) abgelegt und nicht an einen Server von StockFlow übertragen. Es gibt kein Tracking und keine Cookies.</p>
+    <p class="muted">Beim Laden der Stammdaten wird <b>raw.githubusercontent.com</b> kontaktiert, bei aktivierter Kursanbindung zusätzlich <b>api.twelvedata.com</b> (mit deinem API-Schlüssel). Dabei wird technisch bedingt deine IP-Adresse übertragen. Wird die Seite über GitHub Pages ausgeliefert, kann GitHub Zugriffsdaten verarbeiten. Du kannst alle lokalen Daten unter „Optionen“ exportieren oder löschen.</p></section>
+  <section class="panel"><div class="panel-head"><h2>Impressum</h2></div>
+    <div class="notice">Platzhalter: Betreibst du die Seite öffentlich, ist in Deutschland in der Regel ein Impressum erforderlich. Trage hier deine eigenen Angaben ein (bearbeite dazu die Datei <b>index.html</b>, Funktion <b>pageAbout</b>). Das ist keine Rechtsberatung.</div>
+    <p style="margin:0">[Vor- und Nachname bzw. Firma]<br>[Straße und Hausnummer]<br>[PLZ und Ort]<br>[E-Mail-Adresse]</p></section>`);
+}
+
 /* ---------- Detail-Helfer ---------- */
 function rangeBar(label,lo,hi,v,cur){
   if(lo==null||hi==null||v==null||hi<=lo)return"";
@@ -796,34 +914,43 @@ function fillSearch(){
 
 /* ---------- Portfolio-Verlauf ---------- */
 async function pfHistory(range){
-  const sum=portfolioSummary();if(!sum.length)return{empty:"Noch keine Positionen."};
-  const cur=sum[0].cur;
-  const pos=S.port.filter(p=>(normCur(p.cur)||"?")===cur);
-  const keys=[...new Set(pos.map(p=>p.key))].slice(0,8);
-  const ser={},skipped=[];
+  const hs=allHoldings();if(!hs.length)return{empty:"Noch keine Positionen."};
+  const base=S.settings.base||"";
+  let cur;
+  if(base&&hs.every(h=>fxRate(h.cur,base)!=null))cur=base;
+  else{const sum=portfolioSummary();cur=sum.length?sum[0].cur:hs[0].cur;}
+  const factor=h=>fxRate(h.cur,cur);
+  const skipped=[];
+  const use=hs.filter(h=>{if(factor(h)!=null)return true;skipped.push(inst(h.key).ticker+" ("+h.cur+")");return false;});
+  const keys=[...new Set(use.map(h=>h.key))].slice(0,8);
+  const ser={};
   for(const k of keys){
     const x=inst(k);
-    try{const s=await getSeries(x,range);if(s.cur&&normCur(s.cur)!==cur){skipped.push(x.ticker+" (Währung "+s.cur+")");continue;}ser[k]=s;}
-    catch(e){skipped.push(x.ticker);}
+    try{ser[k]=await getSeries(x,range);}catch(e){skipped.push(x.ticker);}
   }
-  const used=pos.filter(p=>ser[p.key]&&ser[p.key].length);
+  const used=use.filter(h=>{
+    const s=ser[h.key];if(!s||!s.length)return false;
+    if(s.cur&&normCur(s.cur)!==normCur(h.cur)){skipped.push(inst(h.key).ticker+" (Währung "+s.cur+")");return false;}
+    return true;
+  });
   if(!used.length)return{empty:"Für deine Positionen liegen keine Verlaufsdaten vor.",skipped};
-  const dset=new Set();used.forEach(p=>ser[p.key].forEach(pt=>dset.add(pt.d)));
-  const dates=[...dset].sort(),idx={};
-  keys.forEach(k=>idx[k]=-1);
+  const dset=new Set();used.forEach(h=>ser[h.key].forEach(pt=>dset.add(pt.d)));
+  const dates=[...dset].sort();
+  const ps=used.map(h=>({h,s:ser[h.key],si:-1,ti:-1,f:factor(h)}));
   const od=[],vals=[],costs=[];
   for(const d of dates){
-    for(const k of keys){const s=ser[k];if(!s)continue;while(idx[k]+1<s.length&&s[idx[k]+1].d<=d)idx[k]++;}
     let v=0,c=0,n=0;
-    for(const p of used){
-      if(p.date&&p.date>d)continue;
-      const i=idx[p.key];if(i<0)continue;
-      v+=p.qty*ser[p.key][i].c;c+=p.qty*p.price;n++;
+    for(const p of ps){
+      while(p.si+1<p.s.length&&p.s[p.si+1].d<=d)p.si++;
+      while(p.ti+1<p.h.tl.length&&p.h.tl[p.ti+1].d<=d)p.ti++;
+      if(p.si<0||p.ti<0)continue;
+      const e=p.h.tl[p.ti];
+      v+=e.qty*p.s[p.si].c*p.f;c+=e.cost*p.f;n++;
     }
     if(n){od.push(d);vals.push(v);costs.push(c);}
   }
-  if(od.length<2)return{empty:"Im gewählten Zeitraum gibt es noch zu wenige Datenpunkte (Positionen zählen erst ab ihrem Kaufdatum).",skipped};
-  return{dates:od,vals,costs,cur,skipped,partial:used.length<pos.length};
+  if(od.length<2)return{empty:"Im gewählten Zeitraum gibt es noch zu wenige Datenpunkte (Transaktionen wirken erst ab ihrem Datum).",skipped};
+  return{dates:od,vals,costs,cur,skipped,partial:used.length<hs.length,converted:used.some(h=>normCur(h.cur)!==normCur(cur))};
 }
 
 /* ---------- Kursalarme ---------- */
@@ -940,6 +1067,7 @@ function pageSettings(){
     <div class="form-grid">
       <label>Design<select class="field" id="setTheme"><option value="dark">Dunkel</option><option value="light">Hell</option><option value="auto">Automatisch (System)</option></select></label>
       <label>Standard-Zeitraum für Charts<select class="field" id="setRange">${Object.keys(RANGES).map(r=>`<option>${r}</option>`).join("")}</select></label>
+      <label>Basiswährung für den Portfolio-Gesamtwert<select class="field" id="setBase"><option value="">Keine Umrechnung</option><option>EUR</option><option>USD</option><option>CHF</option><option>GBP</option></select></label>
       <label class="full checkline"><input type="checkbox" id="setAuto"> Aktive Alarme automatisch alle 5 Minuten prüfen (verbraucht Kurs-Abrufe)</label>
     </div>
   </section>
@@ -949,10 +1077,10 @@ function pageSettings(){
   </section>
   <section class="panel"><div class="panel-head"><h2>Daten sichern</h2></div>
     <p class="muted" style="margin-top:0">Watchlist und Portfolio liegen nur in diesem Browser. Sichere sie regelmäßig als Datei, um sie auf einem anderen Gerät zu verwenden.</p>
-    <div class="toolbar"><button class="action" data-act="export">Backup exportieren</button><button class="action" data-act="exportcsv">Portfolio als CSV</button><label class="action" style="cursor:pointer">Backup importieren<input type="file" id="impFile" accept="application/json,.json" hidden></label><button class="action danger" data-act="reset">Alle Daten löschen</button></div>
+    <div class="toolbar"><button class="action" data-act="export">Backup exportieren</button><button class="action" data-act="exportcsv">Transaktionen als CSV</button><label class="action" style="cursor:pointer">Backup importieren<input type="file" id="impFile" accept="application/json,.json" hidden></label><button class="action danger" data-act="reset">Alle Daten löschen</button></div>
     <div class="mini">${S.watch.size} Watchlist-Einträge · ${S.port.length} Positionen · ${S.alerts.length} Alarme</div>
   </section></div>`);
-  $("setTheme").value=S.settings.theme;$("setRange").value=S.settings.range;$("setAuto").checked=S.settings.auto!==false;
+  $("setTheme").value=S.settings.theme;$("setRange").value=S.settings.range;$("setAuto").checked=S.settings.auto!==false;$("setBase").value=S.settings.base||"";
 }
 function keyMsg(html,err){const el=$("keyMsg");if(el)el.innerHTML=`<div class="notice ${err?"err":""}" style="margin:12px 0 0">${html}</div>`;}
 
@@ -968,11 +1096,20 @@ document.addEventListener("click",async e=>{
   if(act==="refreshwl"){if(!S.settings.apiKey)return toast("Bitte zuerst einen API-Schlüssel hinterlegen.");toast("Kurse werden aktualisiert …");loadQuotes([...S.watch].map(inst).filter(Boolean),{force:true,max:25});return;}
   if(act==="refreshpf"){if(!S.settings.apiKey)return toast("Bitte zuerst einen API-Schlüssel hinterlegen.");toast("Kurse werden aktualisiert …");loadQuotes(S.port.map(p=>inst(p.key)),{force:true,max:25});return;}
   if(act==="refreshsnap"){if(!S.settings.apiKey)return toast("Bitte zuerst einen API-Schlüssel hinterlegen.");loadQuotes(SNAP.map(s=>inst(s.ticker+"|"+s.exchange)),{force:true});return;}
-  if(act==="addpos"){openPosModal({key});return;}
+  if(act==="addpos"){openPosModal({key,cur:b.dataset.cur});return;}
+  if(act==="sellpos"){openPosModal({key,side:"sell",cur:b.dataset.cur});return;}
   if(act==="editpos"){openPosModal({id});return;}
-  if(act==="delpos"){if(confirm("Diese Position löschen?")){S.port=S.port.filter(p=>p.id!==id);savePort();current.update&&current.update();current.refreshHist&&current.refreshHist();toast("Position gelöscht");}return;}
+  if(act==="delpos"){
+    if(confirm("Diese Transaktion löschen?")){
+      const next=S.port.filter(p=>p.id!==id);
+      if(replay(next).over){toast("Löschen nicht möglich: Spätere Verkäufe würden den Bestand übersteigen.",5000);return;}
+      S.port=next;savePort();current.update&&current.update();current.refreshHist&&current.refreshHist();toast("Transaktion gelöscht");
+    }
+    return;
+  }
   if(act==="theme"){S.settings.theme=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";saveSettings();applyTheme();const st=$("setTheme");if(st)st.value=S.settings.theme;return;}
   if(act==="gsearch"){openSearch();return;}
+  if(act==="hidewelcome"){S.welcomeHidden=true;lsSet("stockflow_v8_welcome",true);current.update&&current.update();return;}
   if(act==="disc"){S.disc=randomKeys(5);current.update&&current.update();return;}
   if(act==="alloc"){PF.alloc=v;document.querySelectorAll("#pfAllocTabs .tab").forEach(b=>b.classList.toggle("active",b.dataset.v===v));current.update&&current.update();return;}
   if(act==="loadvis"){if(!S.settings.apiKey)return toast("Bitte zuerst einen API-Schlüssel hinterlegen.");toast("Kurse werden geladen …");loadQuotes(exFiltered().slice(0,8),{max:8});return;}
@@ -993,8 +1130,8 @@ document.addEventListener("click",async e=>{
   if(act==="exportcsv"){
     const f=s=>{s=String(s==null?"":s);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
     const dec=n=>String(n).replace(".",",");
-    const rows=[["Symbol","Name","Börse","Menge","Kaufkurs","Währung","Kaufdatum"].map(f).join(";")];
-    S.port.forEach(p=>{const x=inst(p.key);rows.push([x.ticker,x.name,x.exchange,dec(p.qty),dec(p.price),p.cur,p.date].map(f).join(";"));});
+    const rows=[["Typ","Symbol","Name","Börse","Menge","Kurs","Währung","Datum"].map(f).join(";")];
+    S.port.forEach(p=>{const x=inst(p.key);rows.push([p.side==="sell"?"Verkauf":"Kauf",x.ticker,x.name,x.exchange,dec(p.qty),dec(p.price),p.cur,p.date].map(f).join(";"));});
     saveBlob(new Blob(["﻿"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"}),"stockflow-portfolio.csv");
     return;
   }
@@ -1026,6 +1163,7 @@ document.addEventListener("change",e=>{
   const id=e.target.id;
   if(id==="setTheme"){S.settings.theme=e.target.value;saveSettings();applyTheme();return;}
   if(id==="setRange"){S.settings.range=e.target.value;saveSettings();return;}
+  if(id==="setBase"){S.settings.base=e.target.value;saveSettings();toast(S.settings.base?"Basiswährung: "+S.settings.base+" (Wechselkurse werden beim Öffnen des Portfolios geladen)":"Umrechnung deaktiviert");return;}
   if(id==="setAuto"){S.settings.auto=e.target.checked;saveSettings();return;}
   if(id==="wlSort"){S.wlSort=e.target.value;current.update&&current.update();return;}
   if(e.target.id!=="impFile")return;
@@ -1035,7 +1173,7 @@ document.addEventListener("change",e=>{
     const d=JSON.parse(r.result);
     if(!d||typeof d!=="object")throw Error("x");
     const w=Array.isArray(d.watch)?d.watch.map(String):[];
-    const p=(Array.isArray(d.portfolio)?d.portfolio:[]).filter(p=>p&&typeof p.key==="string"&&Number(p.qty)>0&&isFinite(Number(p.price))).map(p=>({id:uid(),key:p.key,qty:Number(p.qty),price:Number(p.price),cur:String(p.cur||"").slice(0,4),date:String(p.date||"")}));
+    const p=(Array.isArray(d.portfolio)?d.portfolio:[]).filter(p=>p&&typeof p.key==="string"&&Number(p.qty)>0&&isFinite(Number(p.price))).map(p=>({id:uid(),key:p.key,qty:Number(p.qty),price:Number(p.price),cur:String(p.cur||"").slice(0,4),date:String(p.date||""),side:p.side==="sell"?"sell":"buy"}));
     const al=(Array.isArray(d.alerts)?d.alerts:[]).filter(a=>a&&typeof a.key==="string"&&(a.dir==="above"||a.dir==="below")&&Number(a.price)>0).map(a=>({id:uid(),key:a.key,dir:a.dir,price:Number(a.price),cur:String(a.cur||"").slice(0,4),triggered:0}));
     w.forEach(k=>S.watch.add(k));S.port=S.port.concat(p);S.alerts=S.alerts.concat(al);
     const ntin=d.notes&&typeof d.notes==="object"&&!Array.isArray(d.notes)?d.notes:{};Object.keys(ntin).forEach(k=>{if(typeof ntin[k]==="string"&&ntin[k].trim())S.notes[k]=ntin[k].slice(0,2000);});
@@ -1050,10 +1188,12 @@ document.addEventListener("submit",e=>{
   const qty=parseFloat($("pmQty").value),price=parseFloat($("pmPrice").value);
   let cur=$("pmCur").value.trim();cur=/^gb[px]$/i.test(cur)?"GBX":cur.toUpperCase();
   if(!(qty>0)||!(price>=0)||!cur){toast("Bitte Menge, Kaufkurs und Währung prüfen.");return;}
-  const rec={id:M.edit?M.edit.id:uid(),key:keyOf(M.x),qty,price,cur,date:$("pmDate").value};
-  if(M.edit)S.port=S.port.map(p=>p.id===rec.id?rec:p);else S.port.push(rec);
+  const rec={id:M.edit?M.edit.id:uid(),key:keyOf(M.x),qty,price,cur,date:$("pmDate").value,side:$("pmSide").value==="sell"?"sell":"buy"};
+  const next=M.edit?S.port.map(p=>p.id===rec.id?rec:p):S.port.concat([rec]);
+  if(replay(next).over){toast("Die Verkaufsmenge übersteigt den Bestand zu diesem Datum.",5000);return;}
+  S.port=next;
   savePort();
-  const x=M.x;closeModal();toast("Position gespeichert");
+  const x=M.x;closeModal();toast("Transaktion gespeichert");
   if(current.update)current.update();
   if(current.refreshHist)current.refreshHist();
   if(S.settings.apiKey&&!fresh(keyOf(x),300000))loadQuotes([x],{force:true});
